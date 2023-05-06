@@ -5,7 +5,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "numba_integrators"
+name = "numba-integrators"
 description = "Numerical integrators using Numba"
 classifiers = [
     "Development Status :: 1 - Planning",
@@ -32,9 +32,9 @@ authors = [
 text = "MIT License"
 
 [project.urls]
-Homepage = "https://github.com/Limespy/numba_integrators"
-Changelog = "https://github.com/Limespy/numba_integrators/blob/main/README.md#Changelog"
-"Issue Tracker" = "https://github.com/Limespy/numba_integrators/issues"
+Homepage = "https://github.com/Limespy/numba-integrators"
+Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Changelog"
+"Issue Tracker" = "https://github.com/Limespy/numba-integrators/issues"
 
 [tool.setuptools.dynamic.dependencies]
 file = [
