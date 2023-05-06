@@ -5,8 +5,8 @@
 import pathlib
 import sys
 
+import tomli
 import tomli_w
-import tomllib
 from build import __main__ as build
 
 import readme
@@ -35,8 +35,6 @@ if not '--notests' in sys.argv or is_verbose:
 BASE_DIR = pathlib.Path(__file__).parent
 PYTHON_VERSION = '>=3.9'
 PATH_LICENCE = next(BASE_DIR.glob('LICENSE*'))
-PATH_SRC = BASE_DIR / 'src'
-PATH_INIT = next(PATH_SRC.rglob('__init__.py'))
 PATH_README = BASE_DIR / 'README.md'
 PATH_PYPROJECT = BASE_DIR / 'pyproject.toml'
 #%%═════════════════════════════════════════════════════════════════════
@@ -73,22 +71,11 @@ def header(text: str, linechar = '─', endchar = '┐', headerwidth  =  60):
 # BUILD INFO
 
 # Loading the pyproject TOML file
-pyproject = tomllib.loads(PATH_PYPROJECT.read_text())
+pyproject = tomli.loads(PATH_PYPROJECT.read_text())
 build_info = pyproject['project']
-
 
 if is_verbose:
     print(f'\n{header("Starting packaging setup", "=", "=")}\n')
-# Getting package name
-build_info['name'] = PATH_INIT.parent.stem
-#───────────────────────────────────────────────────────────────────────
-# Version
-with open(PATH_INIT, 'r', encoding = 'utf8') as f:
-    while not (line := f.readline().lstrip()).startswith('__version__'):
-        pass
-    main_version = line.split('=')[-1].strip().strip("'")
-    build_version = int(build_info['version'].split('.')[-1]) + 1
-    build_info['version'] = f'{main_version}.{build_version}'
 #───────────────────────────────────────────────────────────────────────
 # Licence
 with open(PATH_LICENCE, 'r', encoding = 'utf8') as f:

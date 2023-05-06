@@ -5,8 +5,8 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "numba-integrators"
-description = "Yet Another Markdown Only Generator"
+name = "numba_integrators"
+description = "Numerical integrators using Numba"
 classifiers = [
     "Development Status :: 1 - Planning",
     "License :: OSI Approved :: MIT License",
@@ -19,7 +19,11 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-dynamic = ["dependencies", "optional-dependencies", "version"]
+dynamic = [
+    "dependencies",
+    "optional-dependencies",
+    "version",
+]
 authors = [
     { name = "Limespy" },
 ]
@@ -28,11 +32,17 @@ authors = [
 text = "MIT License"
 
 [project.urls]
-Homepage = "https://github.com/Limespy/numba-integrators"
-Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Changelog"
-"Issue Tracker" = "https://github.com/Limespy/numba-integrators/issues"
+Homepage = "https://github.com/Limespy/numba_integrators"
+Changelog = "https://github.com/Limespy/numba_integrators/blob/main/README.md#Changelog"
+"Issue Tracker" = "https://github.com/Limespy/numba_integrators/issues"
 
-[tool.setuptools.dynamic]
-dependencies = {file = ["dependencies.txt"]}
-optional-dependencies = {dev = {file = "dependencies_dev.txt"}}
-version = {attr = "numba_integrators.__version__"}
+[tool.setuptools.dynamic.dependencies]
+file = [
+    "dependencies.txt",
+]
+
+[tool.setuptools.dynamic.optional-dependencies.dev]
+file = "dependencies_dev.txt"
+
+[tool.setuptools.dynamic.version]
+attr = "numba_integrators.__version__"
