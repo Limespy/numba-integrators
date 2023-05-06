@@ -1,0 +1,38 @@
+[build-system]
+requires = [
+    "setuptools>=64.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "numba-integrators"
+description = "Yet Another Markdown Only Generator"
+classifiers = [
+    "Development Status :: 1 - Planning",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Unix",
+    "Operating System :: POSIX",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+]
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["dependencies", "optional-dependencies", "version"]
+authors = [
+    { name = "Limespy" },
+]
+
+[project.license]
+text = "MIT License"
+
+[project.urls]
+Homepage = "https://github.com/Limespy/numba-integrators"
+Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Changelog"
+"Issue Tracker" = "https://github.com/Limespy/numba-integrators/issues"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["dependencies.txt"]}
+optional-dependencies = {dev = {file = "dependencies_dev.txt"}}
+version = {attr = "numba_integrators.__version__"}

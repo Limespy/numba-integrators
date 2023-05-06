@@ -1,0 +1,20 @@
+name: Publish package to TestPyPI
+
+on:
+  push:
+    branches:
+      - release-candidate
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout to release-candidate
+        uses: actions/checkout@v3
+        with:
+          ref: release-candidate
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
