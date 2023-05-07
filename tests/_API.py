@@ -14,7 +14,7 @@ PATH_UNITTESTS = PATH_TESTS / 'unittests'
 PATH_LINTCONFIG = PATH_TESTS / '.pylintrc'
 PATH_REPO = PATH_TESTS.parent
 # First item in src should be the package
-PATH_SRC = next((PATH_REPO / 'src').glob('*'))
+PATH_SRC = next((PATH_REPO / 'src').rglob('*'))
 #%%═════════════════════════════════════════════════════════════════════
 # TEST CASES
 
@@ -45,12 +45,12 @@ def lint() -> None:
                               '    {msg}"'])
 #══════════════════════════════════════════════════════════════════════════════
 def compare() -> None:
-    import _compare
-    return _compare.main()
+    from compare import main as _main
+    return _main()
 #══════════════════════════════════════════════════════════════════════════════
 def performance():
-    import _performance
-    return _performance.main()
+    from performance import main as _main
+    return _main()
 #═══════════════════════════════════════════════════════════════════════
 def profile():
     import numba_integrators as ni
@@ -95,4 +95,4 @@ def main(args: list[str] = sys.argv[1:]) -> Union[list, None, NoReturn]:
     return [TESTS[arg[2:]]() for arg in args if arg.startswith('--')]
 #══════════════════════════════════════════════════════════════════════════════
 if __name__ == '__main__':
-    main()
+    raise SystemExit(main())

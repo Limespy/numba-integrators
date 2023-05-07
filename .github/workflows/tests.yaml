@@ -1,8 +1,12 @@
 name: Tests
 
 on:
-  - push
-  - pull_request
+  push:
+    branches-ignore:
+      - main
+      - release-candidate
+  pull_request:
+  workflow_call:
 
 jobs:
   test:
