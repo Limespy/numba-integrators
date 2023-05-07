@@ -1,3 +1,8 @@
+[master-info]
+organisation = "https://github.com/Limespy"
+package_name = "numba-integrators"
+description = "Numerical integrators using Numba"
+
 [build-system]
 requires = [
     "setuptools>=64.0",
@@ -17,19 +22,16 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
 ]
-requires-python = ">=3.10"
-readme = "README.md"
-dynamic = [
-    "dependencies",
-    "optional-dependencies",
-    "version",
-]
 authors = [
     { name = "Limespy" },
 ]
-
-[project.license]
-text = "MIT License"
+requires-python = ">=3.10"
+readme = "README.md"
+version = "0.0.2.1683488699"
+dynamic = [
+    "dependencies",
+    "optional-dependencies",
+]
 
 [project.urls]
 Homepage = "https://github.com/Limespy/numba-integrators"
@@ -43,6 +45,3 @@ file = [
 
 [tool.setuptools.dynamic.optional-dependencies.dev]
 file = "dependencies_dev.txt"
-
-[tool.setuptools.dynamic.version]
-attr = "numba_integrators.__version__"
