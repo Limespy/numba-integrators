@@ -23,7 +23,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-version = "0.0.2"
+version = "0.0.3"
 dynamic = [
     "dependencies",
     "optional-dependencies",

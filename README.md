@@ -38,7 +38,7 @@ import numba_integrators
 
 # Changelog <!-- omit in toc -->
 
-## 0.0.2 2023-05-13 <!-- omit in toc -->
+## 0.0.3 2023-05-14 <!-- omit in toc -->
 
 - Setup
 
