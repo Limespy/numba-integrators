@@ -68,6 +68,10 @@ print(y)
 
 # Changelog <!-- omit in toc -->
 
+## 0.1.2 2023-08-06 <!-- omit in toc -->
+
+- Fixes
+
 ## 0.1.1 2023-08-05 <!-- omit in toc -->
 
 - Initial working version
