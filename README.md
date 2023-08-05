@@ -13,6 +13,7 @@ Numba Integrators is collection numerical integrators based on the ones in [SciP
     - [The first steps](#the-first-steps)
         - [Installing](#installing)
         - [Importing](#importing)
+        - [Example](#example)
 
 # Quick start guide
 
@@ -36,11 +37,40 @@ Import name is the same as install name, `numba_integrators`.
 import numba_integrators
 ```
 
+### Example
+
+```python
+import numba as nb
+import numpy as np
+
+import numba_integrators as ni
+
+@nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
+def f(t, y):
+    '''Differential equation for sine wave'''
+    return np.array((y[1], -y[0]))
+
+y0 = np.array((0., 1.))
+
+solver = ni.RK45(f, 0.0, y0,
+                 t_bound = 1, atol = 1e-8, rtol = 1e-8)
+
+t = []
+y = []
+
+while ni.step(solver):
+    t.append(solver.t)
+    y.append(solver.y)
+
+print(t)
+print(y)
+```
+
 # Changelog <!-- omit in toc -->
 
-## 0.0.3 2023-05-14 <!-- omit in toc -->
+## 0.0.3 2023-08-05 <!-- omit in toc -->
 
-- Setup
+- Inital working state
 
 [1]: <https://pypi.org/project/numba_integrators> "Project PyPI page"
 [2]: <https://scipy.org/> "SciPy organisation homepage"
