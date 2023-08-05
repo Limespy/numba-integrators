@@ -9,7 +9,10 @@ Int64Array = NDArray[np.int64]
 
 # numba types
 
-def nbRO(dim = 1, dtype = nb.float64):
+def nbARO(dim = 1, dtype = nb.float64):
     return nb.types.Array(dtype, dim, 'C', readonly = True)
 
 nbODEtype = nb.float64[:](nb.float64, nb.float64[:]).as_type()
+
+def nbA(dim = 1, dtype = nb.float64):
+    return nb.types.Array(dtype, dim, 'C')

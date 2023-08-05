@@ -4,8 +4,10 @@ import numba as nb
 import numpy as np
 
 from ._aux import Float64Array
+from ._aux import nbA
+from ._aux import nbARO
 from ._aux import nbODEtype
-from ._aux import nbRO
+
 
 # Multiply steps computed from asymptotic behaviour of errors by this.
 SAFETY = 0.9
@@ -13,12 +15,21 @@ SAFETY = 0.9
 MIN_FACTOR = 0.2  # Minimum allowed decrease in a step size.
 MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 
-@nb.njit
+@nb.njit(nb.float64(nb.float64[:]),
+         fastmath = True, cache = True)
 def norm(x):
     """Compute RMS norm."""
-    return np.linalg.norm(x) / x.size ** 0.5
+    return np.sqrt(np.sum(x * x) / x.size)
 
-@nb.njit
+@nb.njit(nb.float64(nbODEtype,
+                    nb.float64,
+                    nb.float64[:],
+                    nb.float64[:],
+                    nb.int8,
+                    nb.int8,
+                    nbARO(1),
+                    nbARO(1)),
+         fastmath = True, cache = True)
 def select_initial_step(fun, t0, y0, f0, direction, order, rtol, atol):
     """Empirically select a good initial step.
 
@@ -60,27 +71,97 @@ def select_initial_step(fun, t0, y0, f0, direction, order, rtol, atol):
     scale = atol + np.abs(y0) * rtol
     d0 = norm(y0 / scale)
     d1 = norm(f0 / scale)
-    if d0 < 1e-5 or d1 < 1e-5:
-        h0 = 1e-6
-    else:
-        h0 = 0.01 * d0 / d1
+
+    h0 = 1e-6 if d0 < 1e-5 or d1 < 1e-5 else 0.01 * d0 / d1
 
     y1 = y0 + h0 * direction * f0
     f1 = fun(t0 + h0 * direction, y1)
     d2 = norm((f1 - f0) / scale) / h0
 
-    if d1 <= 1e-15 and d2 <= 1e-15:
-        h1 = max(1e-6, h0 * 1e-3)
-    else:
-        h1 = (0.01 / max(d1, d2)) ** (1 / (order + 1))
+    h1 = (max(1e-6, h0 * 1e-3) if d1 <= 1e-15 and d2 <= 1e-15
+          else (0.01 / max(d1, d2)) ** (1 / (order + 1)))
 
     return min(100 * h0, h1)
 
-base_spec = (('A', nbRO(2)),
-             ('B', nbRO(1)),
-             ('C', nbRO(1)),
-             ('E', nbRO(1)),
-             ('K', nb.types.Array(nb.float64, 2, 'C')),
+# ----------------------------------------------------------------------
+@nb.njit(nb.types.Tuple((nb.boolean,
+                         nb.float64[:],
+                         nb.float64,
+                         nb.float64,
+                         nbA(2)))(nbODEtype,
+                                  nb.int8,
+                                  nb.float64,
+                                  nb.float64[:],
+                                  nb.float64,
+                                  nb.float64,
+                                  nb.float64,
+                                  nbA(2),
+                                  nb.int8,
+                                  nbARO(1),
+                                  nbARO(1),
+                                  nbARO(2),
+                                  nbARO(1),
+                                  nbARO(1),
+                                  nbARO(1),
+                                  nb.float64),
+        cache = True)
+def _step(fun, direction, t, y, t_bound, h_abs, max_step, K, n_stages,
+          rtol, atol, A, B, C, E, error_exponent):
+    if direction * (t - t_bound) >= 0:
+        return False, y, t, h_abs, K # t_bound has been reached
+
+    min_step = 10. * np.abs(np.nextafter(t, direction * np.inf) - t)
+
+    if h_abs < min_step:
+        h_abs = min_step
+
+    while True: # := not working
+        if h_abs > max_step:
+            h_abs = max_step
+
+        h = h_abs * direction
+        # Updating
+        t_old = t
+        t += h
+        K[0] = K[-1]
+
+        if direction * (t - t_bound) > 0:
+            t = t_bound
+            h = t - t_old
+            h_abs = np.abs(h) # There is something weird going on here
+
+        # RK core loop
+        for s in range(1, n_stages):
+            K[s] = fun(t_old + C[s] * h,
+                       y + np.dot(K[:s].T, A[s,:s]) * h)
+        # Updating
+        y_old = y
+
+        y = y_old + h * np.dot(K[:-1].T, B)
+
+        K[-1] = fun(t + h, y)
+
+        error_norm = norm(np.dot(K.T, E)
+                          * h
+                          / (atol + np.maximum(np.abs(y_old),
+                                               np.abs(y)) * rtol))
+
+        if error_norm < 1:
+            h_abs *= (MAX_FACTOR if error_norm == 0 else
+                            min(MAX_FACTOR,
+                                SAFETY * error_norm ** error_exponent))
+            return True, y, t, h_abs, K # Step is accepted
+        else:
+            h_abs *= max(MIN_FACTOR,
+                                SAFETY * error_norm ** error_exponent)
+            if h_abs < min_step:
+                return False, y, t, h_abs, K # Too small step size
+# ----------------------------------------------------------------------
+base_spec = (('A', nbARO(2)),
+             ('B', nbARO(1)),
+             ('C', nbARO(1)),
+             ('E', nbARO(1)),
+             ('K', nbA(2)),
              ('order', nb.int8),
              ('error_estimator_order', nb.int8),
              ('n_stages', nb.int8),
@@ -95,17 +176,16 @@ base_spec = (('A', nbRO(2)),
              ('step_size', nb.float64),
              ('h_abs', nb.float64),
              ('fun', nbODEtype),
-             ('atol', nb.float64[:]),
-             ('rtol', nb.float64[:])
+             ('atol', nbARO(1)),
+             ('rtol', nbARO(1))
 )
 
 @nb.experimental.jitclass(base_spec)
-class RungeKutta:
+class RK:
     """Base class for explicit Runge-Kutta methods."""
 
-    def __init__(self, order, error_estimator_order, n_stages, A, B, C, E,
-                 fun, t0, y0, t_bound, max_step = np.inf,
-                 rtol=1e-3, atol=1e-6, first_step = 0.):
+    def __init__(self, fun, t0, y0, t_bound, max_step, rtol, atol, first_step,
+                 order, error_estimator_order, n_stages, A, B, C, E):
         self.order = order
         self.error_estimator_order = error_estimator_order
         self.n_stages = n_stages
@@ -119,7 +199,7 @@ class RungeKutta:
         self.y = y0
         self.y_old = y0
         self.t_bound = t_bound
-        self.K = np.empty((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
+        self.K = np.zeros((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
         self.K[-1] = self.fun(self.t, self.y)
         self.direction = np.sign(t_bound - t0) if t_bound != t0 else 1
         self.error_exponent = -1 / (self.error_estimator_order + 1)
@@ -131,183 +211,84 @@ class RungeKutta:
 
         if not first_step:
             self.h_abs = select_initial_step(
-                self.fun, self.t, self.y, self.K[-1], self.direction,
+                self.fun, self.t, y0, self.K[-1], self.direction,
                 self.error_estimator_order, self.rtol, self.atol)
     # ------------------------------------------------------------------
-    def _step(self, rejected):
-
-        if self.h_abs > self.max_step:
-            self.h_abs = self.max_step
-        h = self.h_abs * self.direction
-        # Updating
-        self.t_old = self.t
-        self.t += h
-        self.K[0] = self.K[-1]
-
-        if self.direction * (self.t - self.t_bound) > 0:
-            self.t = self.t_bound
-            h = self.t - self.t_old
-            self.h_abs = np.abs(h) # There is something weird going on here
-
-        # RK core loop
-        for s in range(1, self.n_stages):
-            self.K[s] = self.fun(self.t_old + self.C[s] * h,
-                                 self.y + np.dot(self.K[:s].T, self.A[s,:s]) * h)
-        # Updating
+    def step(self) -> bool:
         self.y_old = self.y
+        self.t_old = self.t
+        (running,
+         self.y,
+         self.t,
+         self.h_abs,
+         self.K) = _step(self.fun,
+                        self.direction,
+                        self.t,
+                        self.y,
+                        self.t_bound,
+                        self.h_abs,
+                        self.max_step,
+                        self.K,
+                        self.n_stages,
+                        self.rtol,
+                        self.atol,
+                        self.A,
+                        self.B,
+                        self.C,
+                        self.E,
+                        self.error_exponent)
+        return running
+        # if self.direction * (self.t - self.t_bound) >= 0:
+        #     return False # t_bound has been reached
 
-        self.y = self.y_old + h * np.dot(self.K[:-1].T, self.B)
+        # min_step = 10. * np.abs(np.nextafter(self.t, self.direction * np.inf) - self.t)
 
-        self.K[-1] = self.fun(self.t + h, self.y)
-        x = np.dot(self.K.T, self.E) * h / (self.atol +
-                                            np.maximum(np.abs(self.y_old),
-                                                       np.abs(self.y)) * self.rtol)
+        # if self.h_abs < min_step:
+        #     self.h_abs = min_step
 
-        error_norm = np.sqrt(np.sum(x * x) / x.size)
-        if error_norm < 1:
+        # while True: # := not working
+        #     if self.h_abs > self.max_step:
+        #         self.h_abs = self.max_step
 
-            factor = (MAX_FACTOR if error_norm == 0 else
-                      min(MAX_FACTOR,
-                          SAFETY * error_norm ** self.error_exponent))
-            if rejected and factor > 1:
-                factor = 1
+        #     h = self.h_abs * self.direction
+        #     # Updating
+        #     self.t_old = self.t
+        #     self.t += h
+        #     self.K[0] = self.K[-1]
 
-            self.h_abs *= factor
-            return False
-        else:
-            self.h_abs *= max(MIN_FACTOR, SAFETY * error_norm ** self.error_exponent)
-            return True
-    # ------------------------------------------------------------------
-    def step(self):
-        min_step = 10 * np.abs(np.nextafter(self.t, self.direction * np.inf) - self.t)
+        #     if self.direction * (self.t - self.t_bound) > 0:
+        #         self.t = self.t_bound
+        #         h = self.t - self.t_old
+        #         self.h_abs = np.abs(h) # There is something weird going on here
 
-        if self.h_abs > self.max_step:
-            self.h_abs = self.max_step
-        elif self.h_abs < min_step:
-            self.h_abs = min_step
+        #     # RK core loop
+        #     for s in range(1, self.n_stages):
+        #         self.K[s] = self.fun(self.t_old + self.C[s] * h,
+        #                             self.y + np.dot(self.K[:s].T, self.A[s,:s]) * h)
+        #     # Updating
+        #     self.y_old = self.y
 
-        rejected = self._step(False)
-        while rejected: # := not working
-            if self.h_abs < min_step:
-                return False
-            rejected = self._step(rejected)
+        #     self.y = self.y_old + h * np.dot(self.K[:-1].T, self.B)
 
-        return self.direction * (self.t - self.t_bound) < 0
+        #     self.K[-1] = self.fun(self.t + h, self.y)
 
-# class _RK23(RungeKutta):
-#     """Explicit Runge-Kutta method of order 3(2).
+        #     error_norm = norm(np.dot(self.K.T, self.E)
+        #                       * h
+        #                       / (self.atol
+        #                          + np.maximum(np.abs(self.y_old),
+        #                                              np.abs(self.y)) * self.rtol))
 
-#     This uses the Bogacki-Shampine pair of formulas [1]_. The error is controlled
-#     assuming accuracy of the second-order method, but steps are taken using the
-#     third-order accurate formula (local extrapolation is done). A cubic Hermite
-#     polynomial is used for the dense output.
-
-#     Can be applied in the complex domain.
-
-#     Parameters
-#     ----------
-#     fun : callable
-#         Right-hand side of the system. The calling signature is ``fun(t, y)``.
-#         Here ``t`` is a scalar and there are two options for ndarray ``y``.
-#         It can either have shape (n,), then ``fun`` must return array_like with
-#         shape (n,). Or alternatively it can have shape (n, k), then ``fun``
-#         must return array_like with shape (n, k), i.e. each column
-#         corresponds to a single column in ``y``. The choice between the two
-#         options is determined by `vectorized` argument (see below).
-#     t0 : float
-#         Initial time.
-#     y0 : array_like, shape (n,)
-#         Initial state.
-#     t_bound : float
-#         Boundary time - the integration won't continue beyond it. It also
-#         determines the direction of the integration.
-#     first_step : float or None, optional
-#         Initial step size. Default is ``None`` which means that the algorithm
-#         should choose.
-#     max_step : float, optional
-#         Maximum allowed step size. Default is np.inf, i.e., the step size is not
-#         bounded and determined solely by the solver.
-#     rtol, atol : float and array_like, optional
-#         Relative and absolute tolerances. The solver keeps the local error
-#         estimates less than ``atol + rtol * abs(y)``. Here `rtol` controls a
-#         relative accuracy (number of correct digits), while `atol` controls
-#         absolute accuracy (number of correct decimal places). To achieve the
-#         desired `rtol`, set `atol` to be smaller than the smallest value that
-#         can be expected from ``rtol * abs(y)`` so that `rtol` dominates the
-#         allowable error. If `atol` is larger than ``rtol * abs(y)`` the
-#         number of correct digits is not guaranteed. Conversely, to achieve the
-#         desired `atol` set `rtol` such that ``rtol * abs(y)`` is always smaller
-#         than `atol`. If components of y have different scales, it might be
-#         beneficial to set different `atol` values for different components by
-#         passing array_like with shape (n,) for `atol`. Default values are
-#         1e-3 for `rtol` and 1e-6 for `atol`.
-#     vectorized : bool, optional
-#         Whether `fun` is implemented in a vectorized fashion. Default is False.
-
-#     Attributes
-#     ----------
-#     n : int
-#         Number of equations.
-#     status : string
-#         Current status of the solver: 'running', 'finished' or 'failed'.
-#     t_bound : float
-#         Boundary time.
-#     direction : float
-#         Integration direction: +1 or -1.
-#     t : float
-#         Current time.
-#     y : ndarray
-#         Current state.
-#     t_old : float
-#         Previous time. None if no steps were made yet.
-#     step_size : float
-#         Size of the last successful step. None if no steps were made yet.
-#     nfev : int
-#         Number evaluations of the system's right-hand side.
-#     njev : int
-#         Number of evaluations of the Jacobian. Is always 0 for this solver as it does not use the Jacobian.
-#     nlu : int
-#         Number of LU decompositions. Is always 0 for this solver.
-
-#     References
-#     ----------
-#     .. [1] P. Bogacki, L.F. Shampine, "A 3(2) Pair of Runge-Kutta Formulas",
-#            Appl. Math. Lett. Vol. 2, No. 4. pp. 321-325, 1989.
-#     """
-#     order = 3
-#     error_estimator_order = 2
-#     n_stages = 3
-#     C = np.array((0, 1/2, 3/4))
-#     A = np.array((
-#         (0, 0, 0),
-#         (1/2, 0, 0),
-#         (0, 3/4, 0)
-#     ))
-#     B = np.array((2/9, 1/3, 4/9))
-#     E = np.array((5/72, -1/12, -1/9, 1/8))
-#     P = np.array(((1, -4 / 3, 5 / 9),
-#                   (0, 1, -2/3),
-#                   (0, 4/3, -8/9),
-#                   (0, -1, 1)))
-
-RK45params = dict(
-    order = 5,
-    error_estimator_order = 4,
-    n_stages = 6,
-    A = np.array([
-        [0, 0, 0, 0, 0],
-        [1/5, 0, 0, 0, 0],
-        [3/40, 9/40, 0, 0, 0],
-        [44/45, -56/15, 32/9, 0, 0],
-        [19372/6561, -25360/2187, 64448/6561, -212/729, 0],
-        [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656]
-    ]),
-    B = np.array([35/384, 0, 500/1113, 125/192, -2187/6784, 11/84]),
-    C = np.array([0, 1/5, 3/10, 4/5, 8/9, 1]),
-    E = np.array([-71/57600, 0, 71/16695, -71/1920, 17253/339200, -22/525,
-                1/40])
-)
-
+        #     if error_norm < 1:
+        #         self.h_abs *= (MAX_FACTOR if error_norm == 0 else
+        #                        min(MAX_FACTOR,
+        #                            SAFETY * error_norm ** self.error_exponent))
+        #         return True # Step is accepted
+        #     else:
+        #         self.h_abs *= max(MIN_FACTOR,
+        #                           SAFETY * error_norm ** self.error_exponent)
+        #         if self.h_abs < min_step:
+        #             return False # Too small step size
+# ======================================================================
 def convert(y0, rtol, atol) -> tuple[Float64Array, Float64Array, Float64Array]:
     y0 = np.asarray(y0).astype(np.float64)
 
@@ -317,11 +298,79 @@ def convert(y0, rtol, atol) -> tuple[Float64Array, Float64Array, Float64Array]:
     if not isinstance(rtol, np.ndarray):
         rtol = np.full(len(y0), rtol)
     return y0, rtol, atol
+# ----------------------------------------------------------------------
 
-def RK45(fun, t0, y0, t_bound, max_step = np.inf,
-         rtol=1e-3, atol=1e-6, first_step = 0.):
+_RK23_order = 3
+_RK23_error_estimator_order = 2
+_RK23_n_stages = 3
+_RK23_A = np.array((
+    (0, 0, 0),
+    (1/2, 0, 0),
+    (0, 3/4, 0)
+))
+_RK23_B = np.array((2/9, 1/3, 4/9))
+_RK23_C = np.array((0, 1/2, 3/4))
+_RK23_E = np.array((5/72, -1/12, -1/9, 1/8))
+_RK23_P = np.array(((1, -4 / 3, 5 / 9),
+                (0, 1, -2/3),
+                (0, 4/3, -8/9),
+                (0, -1, 1)))
+# @nb.njit(RK.class_type.'instance_type(nbODEtype,
+#                                       nb.float64,
+#                                       nb.float64[:],
+#                                       nb.float64,
+#                                       nb.float64,
+#                                       nbARO(1),
+#                                       nbARO(1),
+#                                       nb.float64),
+#          cache = False) # Some issue' in making caching jitclasses
+@nb.njit(cache = False)
+def RK23_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step):
+    return RK(fun, t0, y0, t_bound, max_step, rtol, atol, first_step,
+              _RK23_order, _RK23_error_estimator_order, _RK23_n_stages,
+              _RK23_A, _RK23_B, _RK23_C, _RK23_E)
+# ----------------------------------------------------------------------
+def RK23(fun, t0, y0, t_bound, max_step = np.inf,
+         rtol = 1e-3, atol = 1e-6, first_step = 0.):
 
     y0, rtol, atol = convert(y0, rtol, atol)
+    return RK23_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
+# ----------------------------------------------------------------------
+_RK45_order = np.int8(5)
+_RK45_error_estimator_order = np.int8(4)
+_RK45_n_stages = np.int8(6)
+_RK45_A = np.array((
+            (0., 0., 0., 0., 0.),
+            (1/5, 0., 0., 0., 0.),
+            (3/40, 9/40, 0., 0., 0.),
+            (44/45, -56/15, 32/9, 0., 0.),
+            (19372/6561, -25360/2187, 64448/6561, -212/729, 0),
+            (9017/3168, -355/33, 46732/5247, 49/176, -5103/18656)
+    ), dtype = np.float64)
+_RK45_B = np.array((35/384, 0, 500/1113, 125/192, -2187/6784, 11/84))
+_RK45_C = np.array((0, 1/5, 3/10, 4/5, 8/9, 1))
+_RK45_E = np.array((-71/57600, 0, 71/16695, -71/1920, 17253/339200, -22/525, 1/40))
+# @nb.njit(RK.class_type.instance_type(nbODEtype,
+#                                       nb.float64,
+#                                       nb.float64[:],
+#                                       nb.float64,
+#                                       nb.float64,
+#                                       nbARO(1),
+#                                       nbARO(1),
+#                                       nb.float64),
+#          cache = False) # Some isse in making caching jitclasses
+@nb.njit(cache = False)
+def RK45_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step):
+    return RK(fun, t0, y0, t_bound, max_step, rtol, atol, first_step,
+              _RK45_order, _RK45_error_estimator_order, _RK45_n_stages,
+              _RK45_A, _RK45_B, _RK45_C, _RK45_E)
+# ----------------------------------------------------------------------
+def RK45(fun, t0, y0, t_bound, max_step = np.inf,
+         rtol = 1e-3, atol = 1e-6, first_step = 0.):
 
-    return RungeKutta(*RK45params.values(), # type: ignore
-                 fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
+    y0, rtol, atol = convert(y0, rtol, atol)
+    return RK45_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
+# ----------------------------------------------------------------------
+@nb.njit(nb.boolean(RK.class_type.instance_type), cache = True) # type: ignore
+def step(solver: RK) -> bool:
+    return solver.step()
