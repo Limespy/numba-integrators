@@ -10,6 +10,10 @@ def main():
     def f(t, y):
         return np.array((y[1], -y[0]))
 
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
+    def g(t, y):
+        return np.array((2*y[1], -y[0]))
+
     y0 = np.array((0., 1.))
 
     args = (f, 0.0, y0)
@@ -30,7 +34,7 @@ def main():
 
         t0 = perf_counter()
 
-        solver = ni.RK45(*args, **kwargs)
+        solver = ni.RK45(g, 0.0, y0, **kwargs)
         print(f'First initialisation: {perf_counter() - t0:.2f} s')
         t0 = perf_counter()
 
