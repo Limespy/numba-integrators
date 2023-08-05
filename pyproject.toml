@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 name = "numba-integrators"
 description = "Numerical integrators using Numba"
 classifiers = [
-    "Development Status :: 1 - Planning",
+    "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
     "Operating System :: Unix",
     "Operating System :: POSIX",
@@ -23,7 +23,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-version = "0.0.3"
+version = "0.1.1"
 dynamic = [
     "dependencies",
     "optional-dependencies",
