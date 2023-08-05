@@ -41,9 +41,8 @@ import numba_integrators
 
 ```python
 import numba as nb
-import numpy as np
-
 import numba_integrators as ni
+import numpy as np
 
 @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
 def f(t, y):
@@ -64,11 +63,16 @@ while ni.step(solver):
 
 print(t)
 print(y)
+
 ```
 
 # Changelog <!-- omit in toc -->
 
-## 0.0.3 2023-08-05 <!-- omit in toc -->
+## 0.1.1 2023-08-05 <!-- omit in toc -->
+
+- Initial working version
+
+## 0.0.3 2023-05-14 <!-- omit in toc -->
 
 - Inital working state
 
