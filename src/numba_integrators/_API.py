@@ -85,6 +85,7 @@ def select_initial_step(fun, t0, y0, f0, direction, order, rtol, atol):
 
 # ----------------------------------------------------------------------
 @nb.njit(nb.types.Tuple((nb.boolean,
+                         nb.float64,
                          nb.float64[:],
                          nb.float64,
                          nb.float64,
@@ -108,8 +109,9 @@ def select_initial_step(fun, t0, y0, f0, direction, order, rtol, atol):
 def _step(fun, direction, t, y, t_bound, h_abs, max_step, K, n_stages,
           rtol, atol, A, B, C, E, error_exponent):
     if direction * (t - t_bound) >= 0:
-        return False, y, t, h_abs, K # t_bound has been reached
-
+        return False, t, y, h_abs, h_abs, K # t_bound has been reached
+    t_old = t
+    y_old = y
     min_step = 10. * np.abs(np.nextafter(t, direction * np.inf) - t)
 
     if h_abs < min_step:
@@ -118,44 +120,40 @@ def _step(fun, direction, t, y, t_bound, h_abs, max_step, K, n_stages,
     while True: # := not working
         if h_abs > max_step:
             h_abs = max_step
-
         h = h_abs * direction
         # Updating
-        t_old = t
-        t += h
+        t = t_old + h
+
         K[0] = K[-1]
 
-        if direction * (t - t_bound) > 0:
+        if direction * (t - t_bound) >= 0:
             t = t_bound
             h = t - t_old
             h_abs = np.abs(h) # There is something weird going on here
-
         # RK core loop
         for s in range(1, n_stages):
             K[s] = fun(t_old + C[s] * h,
-                       y + np.dot(K[:s].T, A[s,:s]) * h)
-        # Updating
-        y_old = y
+                       y_old + np.dot(K[:s].T, A[s,:s]) * h)
 
         y = y_old + h * np.dot(K[:-1].T, B)
 
-        K[-1] = fun(t + h, y)
+        K[-1] = fun(t, y)
 
         error_norm = norm(np.dot(K.T, E)
                           * h
                           / (atol + np.maximum(np.abs(y_old),
-                                               np.abs(y)) * rtol))
+                                              np.abs(y)) * rtol))
 
         if error_norm < 1:
             h_abs *= (MAX_FACTOR if error_norm == 0 else
                             min(MAX_FACTOR,
                                 SAFETY * error_norm ** error_exponent))
-            return True, y, t, h_abs, K # Step is accepted
+            return True, t, y, h_abs, h, K # Step is accepted
         else:
             h_abs *= max(MIN_FACTOR,
                                 SAFETY * error_norm ** error_exponent)
             if h_abs < min_step:
-                return False, y, t, h_abs, K # Too small step size
+                return False, t, y, h_abs, h, K # Too small step size
 # ----------------------------------------------------------------------
 base_spec = (('A', nbARO(2)),
              ('B', nbARO(1)),
@@ -165,16 +163,14 @@ base_spec = (('A', nbARO(2)),
              ('order', nb.int8),
              ('error_estimator_order', nb.int8),
              ('n_stages', nb.int8),
-             ('t_old', nb.float64),
              ('t', nb.float64),
              ('y', nb.float64[:]),
-             ('y_old', nb.float64[:]),
              ('t_bound', nb.float64),
              ('direction', nb.int8),
              ('max_step', nb.float64),
              ('error_exponent', nb.float64),
-             ('step_size', nb.float64),
              ('h_abs', nb.float64),
+             ('step_size', nb.float64),
              ('fun', nbODEtype),
              ('atol', nbARO(1)),
              ('rtol', nbARO(1))
@@ -195,16 +191,12 @@ class RK:
         self.E = E
         self.fun = fun
         self.t = t0
-        self.t_old = t0
         self.y = y0
-        self.y_old = y0
         self.t_bound = t_bound
         self.K = np.zeros((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
         self.K[-1] = self.fun(self.t, self.y)
         self.direction = np.sign(t_bound - t0) if t_bound != t0 else 1
         self.error_exponent = -1 / (self.error_estimator_order + 1)
-        self.step_size = 0
-
         self.atol = atol
         self.rtol = rtol
         self.max_step = max_step
@@ -213,14 +205,16 @@ class RK:
             self.h_abs = select_initial_step(
                 self.fun, self.t, y0, self.K[-1], self.direction,
                 self.error_estimator_order, self.rtol, self.atol)
+        else:
+            self.h_abs = first_step
+        self.step_size = self.h_abs
     # ------------------------------------------------------------------
     def step(self) -> bool:
-        self.y_old = self.y
-        self.t_old = self.t
         (running,
-         self.y,
          self.t,
+         self.y,
          self.h_abs,
+         self.step_size,
          self.K) = _step(self.fun,
                         self.direction,
                         self.t,
@@ -237,6 +231,7 @@ class RK:
                         self.C,
                         self.E,
                         self.error_exponent)
+
         return running
         # if self.direction * (self.t - self.t_bound) >= 0:
         #     return False # t_bound has been reached
@@ -288,6 +283,7 @@ class RK:
         #                           SAFETY * error_norm ** self.error_exponent)
         #         if self.h_abs < min_step:
         #             return False # Too small step size
+        # ------------------------------------------------------------------
 # ======================================================================
 def convert(y0, rtol, atol) -> tuple[Float64Array, Float64Array, Float64Array]:
     y0 = np.asarray(y0).astype(np.float64)
