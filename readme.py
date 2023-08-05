@@ -1,8 +1,20 @@
+import pathlib
+
 import numba_integrators as ni
 import yamdog as md
 from limedev import readme
+
+PATH_BASE = pathlib.Path(__file__).parent
+PATH_README = PATH_BASE / 'README.md'
+PATH_PYPROJECT = PATH_BASE / 'pyproject.toml'
+
 #=======================================================================
 NAME = 'Numba Integrators'
+def quick_start():
+    example_text = (PATH_BASE / '.readme' / 'example.py').read_text()
+
+    guide = md.Document([md.Heading('Example', 3), md.CodeBlock(example_text, 'python')])
+    return guide
 #=======================================================================
 def make(project_info):
 
@@ -17,8 +29,10 @@ def make(project_info):
        link_numba,
        '.'
     ])])
+
     return readme.make(ni, semi_description,
-                       name = NAME)
+                       name = NAME,
+                       quick_start = quick_start())
 #=======================================================================
 def main():
 
@@ -27,10 +41,6 @@ def main():
         import tomllib
     except ModuleNotFoundError:
         import tomli as tomllib # type: ignore
-
-    PATH_BASE = pathlib.Path(__file__).parent
-    PATH_README = PATH_BASE / 'README.md'
-    PATH_PYPROJECT = PATH_BASE / 'pyproject.toml'
 
     PATH_README.write_text(str(make(tomllib.loads(PATH_PYPROJECT.read_text())['project']))
                            + '\n')
