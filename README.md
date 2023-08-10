@@ -1,7 +1,7 @@
-[![PyPI Package latest release](https://img.shields.io/pypi/v/numba_integrators.svg)][1]
-[![PyPI Wheel](https://img.shields.io/pypi/wheel/numba_integrators.svg)][1]
-[![Supported versions](https://img.shields.io/pypi/pyversions/numba_integrators.svg)][1]
-[![Supported implementations](https://img.shields.io/pypi/implementation/numba_integrators.svg)][1]
+[![PyPI Package latest release](https://img.shields.io/pypi/v/numba-integrators.svg)][1]
+[![PyPI Wheel](https://img.shields.io/pypi/wheel/numba-integrators.svg)][1]
+[![Supported versions](https://img.shields.io/pypi/pyversions/numba-integrators.svg)][1]
+[![Supported implementations](https://img.shields.io/pypi/implementation/numba-integrators.svg)][1]
 
 # Numba Integrators <!-- omit in toc -->
 
@@ -14,10 +14,11 @@ Numba Integrators is collection numerical integrators based on the ones in [SciP
         - [Installing](#installing)
         - [Importing](#importing)
         - [Example](#example)
+        - [Example of the advanced function](#example-of-the-advanced-function)
 
 # Quick start guide
 
-Here's how you can start numerically
+Here's how you can start
 
 ## The first steps
 
@@ -26,12 +27,12 @@ Here's how you can start numerically
 Install Numba Integrators with pip
 
 ```
-pip install numba_integrators
+pip install numba-integrators
 ```
 
 ### Importing
 
-Import name is the same as install name, `numba_integrators`.
+Import name is not the same as install name, `numba-integrators`.
 
 ```python
 import numba_integrators
@@ -66,7 +67,53 @@ print(y)
 
 ```
 
+### Example of the advanced function
+
+```python
+import numba as nb
+import numba_integrators as ni
+import numpy as np
+
+@nb.njit
+def f(t, y, parameters):
+    '''Differential equation for sine wave'''
+    auxiliary = parameters[0] * y[1]
+    dy = np.array((auxiliary, -y[0])) + parameters[1]
+    return dy, auxiliary
+
+t0 = 0.
+y0 = np.array((0., 1.))
+parameters = (2., np.array((-1., 1.)))
+
+# Numba type signatures
+parameters_signature = nb.types.Tuple((nb.float64, nb.float64[:]))
+auxiliary_signature = nb.float64
+solver_type = ni.RK45
+
+Solver = ni.Advanced(parameters_signature, auxiliary_signature, solver_type)
+solver = Solver(f, t0, y0, parameters,
+                t_bound = 1, atol = 1e-8, rtol = 1e-8)
+
+t = []
+y = []
+auxiliary = []
+
+while ni.step(solver):
+    t.append(solver.t)
+    y.append(solver.y)
+    auxiliary.append(solver.auxiliary)
+
+print(t)
+print(y)
+print(auxiliary)
+
+```
+
 # Changelog <!-- omit in toc -->
+
+## 0.2.1 2023-08-11 <!-- omit in toc -->
+
+- Advanced mode solver to handle functions with parameters and auxiliary output
 
 ## 0.1.2 2023-08-06 <!-- omit in toc -->
 
@@ -80,6 +127,6 @@ print(y)
 
 - Inital working state
 
-[1]: <https://pypi.org/project/numba_integrators> "Project PyPI page"
+[1]: <https://pypi.org/project/numba-integrators> "Project PyPI page"
 [2]: <https://scipy.org/> "SciPy organisation homepage"
 [3]: <https://numba.pydata.org> "Numba organisation homepage"

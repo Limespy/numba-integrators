@@ -11,12 +11,18 @@ PATH_PYPROJECT = PATH_BASE / 'pyproject.toml'
 #=======================================================================
 NAME = 'Numba Integrators'
 def quick_start():
-    example_text = (PATH_BASE / '.readme' / 'example.py').read_text()
+    example_text = (PATH_BASE / 'example.py').read_text()
 
-    guide = md.Document([md.Heading('Example', 3), md.CodeBlock(example_text, 'python')])
+    guide = md.Document([md.Heading('Example', 3),
+                         md.CodeBlock(example_text, 'python')])
     return guide
 #=======================================================================
-def make(project_info):
+def advanced():
+    example_advanced = (PATH_BASE / 'example_advanced.py').read_text()
+    return md.Document([md.Heading('Example of the advanced function', 3),
+                         md.CodeBlock(example_advanced, 'python')])
+#=======================================================================
+def main(project_info):
 
     link_numba = md.Link('https://numba.pydata.org', 'Numba',
                          'Numba organisation homepage')
@@ -32,19 +38,5 @@ def make(project_info):
 
     return readme.make(ni, semi_description,
                        name = NAME,
-                       quick_start = quick_start())
-#=======================================================================
-def main():
-
-    import pathlib
-    try:
-        import tomllib
-    except ModuleNotFoundError:
-        import tomli as tomllib # type: ignore
-
-    PATH_README.write_text(str(make(tomllib.loads(PATH_PYPROJECT.read_text())['project']))
-                           + '\n')
-    return 0
-#=======================================================================
-if __name__ == '__main__':
-    raise SystemExit(main())
+                       quick_start = quick_start() + advanced(),
+                       pypiname = project_info['name'])
