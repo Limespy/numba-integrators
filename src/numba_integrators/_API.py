@@ -233,66 +233,18 @@ class RK:
                         self.error_exponent)
 
         return running
-        # if self.direction * (self.t - self.t_bound) >= 0:
-        #     return False # t_bound has been reached
-
-        # min_step = 10. * np.abs(np.nextafter(self.t, self.direction * np.inf) - self.t)
-
-        # if self.h_abs < min_step:
-        #     self.h_abs = min_step
-
-        # while True: # := not working
-        #     if self.h_abs > self.max_step:
-        #         self.h_abs = self.max_step
-
-        #     h = self.h_abs * self.direction
-        #     # Updating
-        #     self.t_old = self.t
-        #     self.t += h
-        #     self.K[0] = self.K[-1]
-
-        #     if self.direction * (self.t - self.t_bound) > 0:
-        #         self.t = self.t_bound
-        #         h = self.t - self.t_old
-        #         self.h_abs = np.abs(h) # There is something weird going on here
-
-        #     # RK core loop
-        #     for s in range(1, self.n_stages):
-        #         self.K[s] = self.fun(self.t_old + self.C[s] * h,
-        #                             self.y + np.dot(self.K[:s].T, self.A[s,:s]) * h)
-        #     # Updating
-        #     self.y_old = self.y
-
-        #     self.y = self.y_old + h * np.dot(self.K[:-1].T, self.B)
-
-        #     self.K[-1] = self.fun(self.t + h, self.y)
-
-        #     error_norm = norm(np.dot(self.K.T, self.E)
-        #                       * h
-        #                       / (self.atol
-        #                          + np.maximum(np.abs(self.y_old),
-        #                                              np.abs(self.y)) * self.rtol))
-
-        #     if error_norm < 1:
-        #         self.h_abs *= (MAX_FACTOR if error_norm == 0 else
-        #                        min(MAX_FACTOR,
-        #                            SAFETY * error_norm ** self.error_exponent))
-        #         return True # Step is accepted
-        #     else:
-        #         self.h_abs *= max(MIN_FACTOR,
-        #                           SAFETY * error_norm ** self.error_exponent)
-        #         if self.h_abs < min_step:
-        #             return False # Too small step size
-        # ------------------------------------------------------------------
 # ======================================================================
 def convert(y0, rtol, atol) -> tuple[Float64Array, Float64Array, Float64Array]:
     y0 = np.asarray(y0).astype(np.float64)
+    if y0.ndim == 0:
+        y0 = np.full(1, y0)
 
-    if not isinstance(atol, np.ndarray):
+    if not isinstance(rtol, np.ndarray) or len(rtol) == 1:
+        rtol = np.full(len(y0), rtol)
+
+    if not isinstance(atol, np.ndarray) or len(atol) == 1:
         atol = np.full(len(y0), atol)
 
-    if not isinstance(rtol, np.ndarray):
-        rtol = np.full(len(y0), rtol)
     return y0, rtol, atol
 # ----------------------------------------------------------------------
 
