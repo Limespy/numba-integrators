@@ -53,9 +53,11 @@ def f_sine_advanced(t, y, p):
     return sine_diff(t, y), p
 # ----------------------------------------------------------------------
 class Test_Advanced:
+
     parameters_type = nb.types.Tuple((nb.float64, nb.float64[:]))
     auxiliary_type = nb.types.Tuple((nb.float64, nb.float64[:]))
     parameters = (1., np.array((1., 1.), dtype = np.float64))
+
     @pytest.mark.parametrize('solver_type', (ni.RK23, ni.RK45))
     def test_class_creation(self, solver_type):
         Solver = ni.Advanced(nb.float64, nb.float64, solver_type)

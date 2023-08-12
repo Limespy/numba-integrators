@@ -34,7 +34,7 @@ def nbAdvanced_initial_step_signature(parameters_type, fun_type):
                         parameters_type,
                         nb.float64[:],
                         nb.int8,
-                        nb.int8,
+                        nb.float64,
                         nbARO(1),
                         nbARO(1))
 # ----------------------------------------------------------------------

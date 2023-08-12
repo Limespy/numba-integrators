@@ -16,7 +16,7 @@ from ._aux import nbODEtype
 from ._aux import npAFloat64
 from ._aux import ODEFUN
 from ._aux import ODEFUNA
-
+# ======================================================================
 # Multiply steps computed from asymptotic behaviour of errors by this.
 SAFETY = 0.9
 
@@ -24,13 +24,13 @@ MIN_FACTOR = 0.2  # Minimum allowed decrease in a step size.
 MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 
 IS_CACHE = True
-
+# ----------------------------------------------------------------------
 @nb.njit(nb.float64(nb.float64[:]),
          fastmath = True, cache = IS_CACHE)
 def norm(x: npAFloat64) -> np.float64:
     """Compute RMS norm."""
     return np.sqrt(np.sum(x * x) / x.size)
-
+# ----------------------------------------------------------------------
 @nb.njit(nb.float64(nbODEtype,
                     nb.float64,
                     nb.float64[:],
@@ -203,8 +203,7 @@ base_spec = (('A', nbARO(2)),
              ('h_abs', nb.float64),
              ('step_size', nb.float64),
              ('atol', nbARO(1)),
-             ('rtol', nbARO(1))
-)
+             ('rtol', nbARO(1)))
 # ----------------------------------------------------------------------
 @nb.experimental.jitclass(base_spec + (('fun', nbODEtype),))
 class RK:
@@ -234,21 +233,22 @@ class RK:
         self.t = t0
         self.y = y0
         self.t_bound = t_bound
+        self.atol = atol
+        self.rtol = rtol
+        self.max_step = max_step
+
         self.K = np.zeros((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
         self.K[-1] = self.fun(self.t, self.y) # type: ignore
         self.direction = np.float64(np.sign(t_bound - t0) if t_bound != t0 else 1)
         self.error_exponent = -1 / (error_estimator_order + 1)
-        self.atol = atol
-        self.rtol = rtol
-        self.max_step = max_step
 
         if not first_step:
             self.h_abs = select_initial_step(
                 self.fun, self.t, y0, self.K[-1], self.direction,
                 self.error_exponent, self.rtol, self.atol)
         else:
-            self.h_abs = first_step
-        self.step_size = self.h_abs
+            self.h_abs = np.abs(first_step)
+        self.step_size = self.direction * self.h_abs
     # ------------------------------------------------------------------
     def step(self) -> bool:
         (running,
@@ -316,7 +316,7 @@ _RK23_E = np.array((5/72, -1/12, -1/9, 1/8), dtype = np.float64)
 #                 (0, 1, -2/3),
 #                 (0, 4/3, -8/9),
 #                 (0, -1, 1)))
-# @nb.njit(RK.class_type.'instance_type(nbODEtype,
+# @nb.njit(RK.class_type.instance_type(nbODEtype,
 #                                       nb.float64,
 #                                       nb.float64[:],
 #                                       nb.float64,
@@ -340,11 +340,11 @@ def RK23_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK23(fun: ODEFUN,
          t0: float,
-         y0: Union[npAFloat64, float, Iterable],
+         y0: Union[int, float, npAFloat64, Iterable],
          t_bound: float,
          max_step: float = np.inf,
-         rtol: Union[npAFloat64, float, Iterable] = 1e-3,
-         atol: Union[npAFloat64, float, Iterable] = 1e-6,
+         rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
+         atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
          first_step: float = 0) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)
@@ -390,11 +390,11 @@ def RK45_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK45(fun: ODEFUN,
          t0: float,
-         y0: Union[npAFloat64, float, Iterable],
+         y0: Union[int, float, npAFloat64, Iterable],
          t_bound: float,
          max_step: float = np.inf,
-         rtol: Union[npAFloat64, float, Iterable] = 1e-3,
-         atol: Union[npAFloat64, float, Iterable] = 1e-6,
+         rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
+         atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
          first_step: float = 0.) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)
@@ -553,8 +553,8 @@ def Advanced(parameters_signature,
                                                          )(_step_advanced)
     # ------------------------------------------------------------------
     @nb.experimental.jitclass(base_spec + (('parameters', parameters_signature),
-                              ('auxiliary', auxiliary_signature),
-                              ('fun', fun_type)))
+                                           ('auxiliary', auxiliary_signature),
+                                           ('fun', fun_type)))
     class RK_Advanced:
         """Base class for explicit Runge-Kutta methods."""
 
@@ -583,6 +583,10 @@ def Advanced(parameters_signature,
             self.y = y0
             self.parameters = parameters
             self.t_bound = t_bound
+            self.atol = atol
+            self.rtol = rtol
+            self.max_step = max_step
+
             self.K = np.zeros((self.n_stages + 1, len(y0)),
                               dtype = self.y.dtype)
             self.K[-1], self.auxiliary = self.fun(self.t, # type: ignore
@@ -590,17 +594,14 @@ def Advanced(parameters_signature,
                                                   self.parameters)
             self.direction = np.float64(np.sign(t_bound - t0) if t_bound != t0 else 1)
             self.error_exponent = -1 / (error_estimator_order + 1)
-            self.atol = atol
-            self.rtol = rtol
-            self.max_step = max_step
 
             if not first_step:
                 self.h_abs = nb_initial_step(
                     self.fun, self.t, y0, self.parameters, self.K[-1], self.direction,
                     self.error_exponent, self.rtol, self.atol)
             else:
-                self.h_abs = first_step
-            self.step_size = self.h_abs
+                self.h_abs = np.abs(first_step)
+            self.step_size = self.direction * self.h_abs
         # --------------------------------------------------------------
         def step(self) -> bool:
             (running,
@@ -627,12 +628,11 @@ def Advanced(parameters_signature,
                                         self.E,
                                         self.error_exponent,
                                         self.auxiliary)
-
             return running
     # ------------------------------------------------------------------
     if solver in (Solver.RK23, Solver.ALL):
         @nb.njit(cache = False)
-        def RK23_direct_advanced(fun,
+        def RK23_direct_advanced(fun: ODEFUNA,
                                  t0: float,
                                  y0: npAFloat64,
                                  parameters: Any,
@@ -646,14 +646,14 @@ def Advanced(parameters_signature,
                      _RK23_error_estimator_order, _RK23_n_stages,
                     _RK23_A, _RK23_B, _RK23_C, _RK23_E)
         # --------------------------------------------------------------
-        def RK23_advanced(fun,
+        def RK23_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0,
+                          y0: Union[int, float, npAFloat64, Iterable],
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol = 1e-3,
-                          atol = 1e-6,
+                          rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
+                          atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
                           first_step: float = 0.) -> RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
@@ -666,14 +666,14 @@ def Advanced(parameters_signature,
     if solver in (Solver.RK45, Solver.ALL):
         @nb.njit(cache = False)
         def RK45_direct_advanced(fun,
-                                 t0,
-                                 y0,
-                                 parameters,
-                                 t_bound,
-                                 max_step,
-                                 rtol,
-                                 atol,
-                                 first_step) -> RK_Advanced:
+                                 t0: float,
+                                 y0: npAFloat64,
+                                 parameters: Any,
+                                 t_bound: float,
+                                 max_step: float,
+                                 rtol: npAFloat64,
+                                 atol: npAFloat64,
+                                 first_step: float) -> RK_Advanced:
             return RK_Advanced(fun, t0, y0, parameters, t_bound, max_step,
                                rtol, atol, first_step,
                     _RK45_error_estimator_order, _RK45_n_stages,
@@ -681,12 +681,12 @@ def Advanced(parameters_signature,
         # --------------------------------------------------------------
         def RK45_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0: Union[npAFloat64, float, Iterable],
+                          y0: Union[int, float, npAFloat64, Iterable],
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol: Union[npAFloat64, float, Iterable] = 1e-3,
-                          atol: Union[npAFloat64, float, Iterable] = 1e-6,
+                          rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
+                          atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
                           first_step: float = 0.) -> RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
@@ -694,10 +694,47 @@ def Advanced(parameters_signature,
                                         max_step, rtol, atol, first_step)
         if solver == Solver.RK45:
             return RK45_advanced
-
+    # ------------------------------------------------------------------
     return {Solver.RK23: RK23_advanced,
             Solver.RK45: RK45_advanced}
 # ======================================================================
 @nb.njit # type: ignore
-def step(solver: RK) -> bool:
+def step(solver) -> bool:
     return solver.step()
+# ======================================================================
+# FAST FORWARD
+@nb.njit
+def ff_to_t(solver, t_end: np.float64) -> bool:
+    '''Fast forwards to given time or t_bound'''
+    t_bound = solver.t_bound
+    is_last = t_bound < t_end
+    if is_last:
+        t_end = t_bound
+
+    while solver.step():
+        ...
+
+    solver.t_bound = t_bound
+
+    return is_last
+# ----------------------------------------------------------------------
+@nb.njit(nb.boolean(RK.class_type.instance_type, # type: ignore
+                    nb.boolean(nb.float64, nb.float64[:]).as_type()),
+         cache = True)
+def ff_to_cond(solver: RK, condition: Callable[[np.float64, npAFloat64], bool]
+               ) -> bool:
+    '''Fast forwards to given time or t_bound'''
+    while solver.step():
+        if condition(solver.t, solver.y):
+            return True
+    return False
+# ----------------------------------------------------------------------
+@nb.njit
+def ff_to_cond_advanced(solver,
+                        condition: Callable[[float, npAFloat64, Any], bool]
+                        ) -> bool:
+    '''Fast forwards to given time or t_bound'''
+    while solver.step():
+        if condition(solver.t, solver.y, solver.auxiliary):
+            return True
+    return False
