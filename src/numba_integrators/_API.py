@@ -707,7 +707,7 @@ def step(solver) -> bool:
 def ff_to_t(solver, t_end: np.float64) -> bool:
     '''Fast forwards to given time or t_bound'''
     t_bound = solver.t_bound
-    is_last = t_bound < t_end
+    is_last = t_bound <= t_end
     if is_last:
         t_end = t_bound
 
