@@ -711,6 +711,8 @@ def ff_to_t(solver, t_end: np.float64) -> bool:
     if is_last:
         t_end = t_bound
 
+    solver.t_bound = t_end
+
     while solver.step():
         ...
 
