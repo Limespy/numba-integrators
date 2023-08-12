@@ -1,3 +1,4 @@
+'''API for the package'''
 import enum
 from typing import Any
 from typing import Callable
@@ -7,29 +8,20 @@ from typing import Union
 import numba as nb
 import numpy as np
 
+from ._aux import IS_CACHE
+from ._aux import MAX_FACTOR
+from ._aux import MIN_FACTOR
 from ._aux import nbA
-from ._aux import nbAdvanced_initial_step_signature
-from ._aux import nbAdvanced_ODE_signature
-from ._aux import nbAdvanced_step_signature
 from ._aux import nbARO
 from ._aux import nbODEtype
+from ._aux import norm
 from ._aux import npAFloat64
 from ._aux import ODEFUN
 from ._aux import ODEFUNA
+from ._aux import SAFETY
 # ======================================================================
-# Multiply steps computed from asymptotic behaviour of errors by this.
-SAFETY = 0.9
 
-MIN_FACTOR = 0.2  # Minimum allowed decrease in a step size.
-MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 
-IS_CACHE = True
-# ----------------------------------------------------------------------
-@nb.njit(nb.float64(nb.float64[:]),
-         fastmath = True, cache = IS_CACHE)
-def norm(x: npAFloat64) -> np.float64:
-    """Compute RMS norm."""
-    return np.sqrt(np.sum(x * x) / x.size)
 # ----------------------------------------------------------------------
 @nb.njit(nb.float64(nbODEtype,
                     nb.float64,
@@ -405,7 +397,51 @@ class Solver(enum.Enum):
     RK45 = RK45
     ALL = 'ALL'
 # ======================================================================
-# CORE FUNCTION WITH PARAMETERS AND AUXILIARY OUTPUT
+# ----------------------------------------------------------------------
+def nbAdvanced_ODE_signature(parameters_type, auxiliary_type):
+    return nb.types.Tuple((nb.float64[:],
+                           auxiliary_type))(nb.float64,
+                                            nb.float64[:],
+                                            parameters_type)
+# ----------------------------------------------------------------------
+def nbAdvanced_initial_step_signature(parameters_type, fun_type):
+    return nb.float64(fun_type,
+                        nb.float64,
+                        nb.float64[:],
+                        parameters_type,
+                        nb.float64[:],
+                        nb.int8,
+                        nb.float64,
+                        nbARO(1),
+                        nbARO(1))
+# ----------------------------------------------------------------------
+def nbAdvanced_step_signature(parameters_type,
+                              auxiliary_type,
+                              fun_type):
+    return nb.types.Tuple((nb.boolean,
+                           nb.float64,
+                           nb.float64[:],
+                           auxiliary_type,
+                           nb.float64,
+                           nb.float64,
+                           nbA(2)))(fun_type,
+                                    nb.int8,
+                                    nb.float64,
+                                    nb.float64[:],
+                                    parameters_type,
+                                    nb.float64,
+                                    nb.float64,
+                                    nb.float64,
+                                    nbA(2),
+                                    nb.int8,
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nbARO(2),
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nb.float64,
+                                    auxiliary_type)
 
 def _select_initial_step_advanced(fun: ODEFUNA,
                                   t0: np.float64,
