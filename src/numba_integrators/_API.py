@@ -707,18 +707,16 @@ def step(solver) -> bool:
 def ff_to_t(solver, t_end: np.float64) -> bool:
     '''Fast forwards to given time or t_bound'''
     t_bound = solver.t_bound
-    is_last = t_bound <= t_end
-    if is_last:
-        t_end = t_bound
-
-    solver.t_bound = t_end
+    is_not_last = t_bound > t_end
+    if is_not_last:
+        solver.t_bound = t_end
 
     while solver.step():
         ...
 
     solver.t_bound = t_bound
 
-    return is_last
+    return is_not_last
 # ----------------------------------------------------------------------
 @nb.njit(nb.boolean(RK.class_type.instance_type, # type: ignore
                     nb.boolean(nb.float64, nb.float64[:]).as_type()),
