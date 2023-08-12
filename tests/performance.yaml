@@ -8,3 +8,13 @@
   accuracy:
     time_independent: 1.0011247145618656
     time dependent: 0.9466700577253073
+0.3.1:
+  time:
+    import: 0.048538000002736226
+    first initialisation: 1.4882737000007182
+    second initialisation: 0.7319603000069037
+    first step: 0.5827394000079948
+    step: 2.5426721841541445e-06
+  accuracy:
+    time_independent: 1.0057480910219627
+    time dependent: .nan

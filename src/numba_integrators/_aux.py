@@ -1,11 +1,17 @@
+from typing import Any
+from typing import Callable
+
 import numba as nb
 import numpy as np
 from numpy.typing import NDArray
 nbtype = nb.core.types.abstract.Type
 # Types
 
-Float64Array = NDArray[np.float64]
-Int64Array = NDArray[np.int64]
+npAFloat64 = NDArray[np.float64]
+npAInt64 = NDArray[np.int64]
+
+ODEFUN  = Callable[[np.float64, npAFloat64], npAFloat64] # type: ignore
+ODEFUNA = Callable[[np.float64, npAFloat64, Any], tuple[npAFloat64, Any]] # type: ignore
 
 # numba types
 # ----------------------------------------------------------------------
