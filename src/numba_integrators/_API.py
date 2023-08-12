@@ -36,7 +36,7 @@ def norm(x: npAFloat64) -> np.float64:
                     nb.float64[:],
                     nb.float64[:],
                     nb.int8,
-                    nb.int8,
+                    nb.float64,
                     nbARO(1),
                     nbARO(1)),
          fastmath = True, cache = IS_CACHE)
@@ -45,7 +45,7 @@ def select_initial_step(fun: ODEFUN,
                         y0: npAFloat64,
                         f0: npAFloat64,
                         direction: np.float64,
-                        error_exponent: np.float64,
+                        error_estimator: np.float64,
                         rtol: npAFloat64,
                         atol: npAFloat64) -> np.float64:
     """Empirically select a good initial step.
@@ -94,7 +94,7 @@ def select_initial_step(fun: ODEFUN,
     d2 = norm((f1 - f0) / scale) / h0
 
     h1 = (max(1e-6, h0 * 1e-3) if d1 <= 1e-15 and d2 <= 1e-15
-          else (max(d1, d2) * 100 ) ** error_exponent)
+          else (max(d1, d2) * 100) ** error_estimator)
 
     return min(100 * h0, h1)
 # ----------------------------------------------------------------------
@@ -583,7 +583,8 @@ def Advanced(parameters_signature,
             self.y = y0
             self.parameters = parameters
             self.t_bound = t_bound
-            self.K = np.zeros((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
+            self.K = np.zeros((self.n_stages + 1, len(y0)),
+                              dtype = self.y.dtype)
             self.K[-1], self.auxiliary = self.fun(self.t, # type: ignore
                                                   self.y,
                                                   self.parameters)
