@@ -111,6 +111,11 @@ print(auxiliary)
 
 # Changelog <!-- omit in toc -->
 
+## 0.3.1 2023-08-27 <!-- omit in toc -->
+
+- Fast forward
+- Refactoring
+
 ## 0.2.1 2023-08-11 <!-- omit in toc -->
 
 - Advanced mode solver to handle functions with parameters and auxiliary output
