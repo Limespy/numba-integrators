@@ -2,7 +2,6 @@ import warnings
 from typing import Any
 from typing import Callable
 from typing import Iterable
-from typing import Union
 
 import numba as nb
 import numpy as np
@@ -84,7 +83,7 @@ RK45_params  = (RK45_error_estimator_order,
                  RK45_C,
                  RK45_E)
 # ======================================================================
-def _into_1d_typearray(item: Union[int, float, npAFloat64, Iterable], # type: ignore
+def _into_1d_typearray(item: int | float | npAFloat64 | Iterable, # type: ignore
                        length: int = 1,
                        dtype: type = np.float64):
     if isinstance(item, np.ndarray):
@@ -101,9 +100,9 @@ def _into_1d_typearray(item: Union[int, float, npAFloat64, Iterable], # type: ig
     else:
         return np.full(length, item, dtype = dtype)
 # ----------------------------------------------------------------------
-def convert(y0: Union[int, float, npAFloat64, Iterable], # type: ignore
-            rtol: Union[int, float, npAFloat64, Iterable], # type: ignore
-            atol: Union[int, float, npAFloat64, Iterable] # type: ignore
+def convert(y0: int | float | npAFloat64 | Iterable, # type: ignore
+            rtol: int | float | npAFloat64 | Iterable, # type: ignore
+            atol: int | float | npAFloat64 | Iterable # type: ignore
             ) -> tuple[npAFloat64, npAFloat64, npAFloat64]: # type: ignore
     '''Converts y0 and tolerances into correct type of arrays'''
     y0 = _into_1d_typearray(y0)

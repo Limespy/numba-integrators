@@ -8,13 +8,19 @@
   accuracy:
     time_independent: 1.0011247145618656
     time dependent: 0.9466700577253073
-0.3.1:
+0.2.2:
   time:
-    import: 0.0473348000086844
-    first initialisation: 1.5293206000351347
-    second initialisation: 0.7711649000411853
-    first step: 0.5974897000123747
-    step: 2.624894154720554e-06
+    import: 0.1893555000424385
+    first initialisation: 1.58157779998146
+    second initialisation: 0.7726596998982131
+    first step: 0.5981737999245524
+    step: 0.04357667780620624
   accuracy:
-    time_independent: 1.0011247145618656
-    time dependent: 0.9466700577253073
+    RK23:
+      exponential: 0.999999999999981
+      sine: 1.0000000000000024
+      riccati: 0.999999999996327
+    RK45:
+      exponential: 0.9999999999999976
+      sine: 1.0
+      riccati: 0.9999999999996545

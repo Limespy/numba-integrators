@@ -1,7 +1,7 @@
 '''Utilities for testing the package'''
+from dataclasses import dataclass
+from dataclasses import field
 from typing import Callable
-from typing import NamedTuple
-from typing import Union
 
 import numba as nb
 import numba_integrators as ni
@@ -11,38 +11,47 @@ from numba_integrators._aux import ODEFUN
 from scipy.integrate import RK23
 from scipy.integrate import RK45
 # ======================================================================
-class Problem(NamedTuple):
+# Reference initial value problems
+JIT = nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
+# ----------------------------------------------------------------------
+@dataclass
+class Problem:
     differential: ODEFUN
-    t0: float
-    y0: np.array[np.float64]
     solution: Callable[[float], npAFloat64]
+    x0: float
     x_end: float
-    y_end: npAFloat64
+    y0: npAFloat64 = field(init = False)
+    y_end: npAFloat64 = field(init = False)
+    # ------------------------------------------------------------------
+    def __post_init__(self) -> None:
+        self.differential = JIT(self.differential)
+        self.y0 = self.solution(self.x0)
+        self.y_end = self.solution(self.x_end)
 # ----------------------------------------------------------------------
-@nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
-def riccati_differential(x, y):
-    '''https://en.wikipedia.org/wiki/Bernoulli_differential_equation#Example
-    '''
-    return 2 * y/x - x ** 2 * y ** 2
+# Riccati
+# https://en.wikipedia.org/wiki/Bernoulli_differential_equation#Example
+# For initial value x = 1, y = (1, 1)
+riccati = Problem(lambda x, y: 2 * y/x - x ** 2 * y ** 2,
+                  lambda x: np.array((x**2 / (x**5 + 4) * 5,), np.float64),
+                  1., 20.)
 # ----------------------------------------------------------------------
-def riccati_solution(x):
-    '''For initial value (1, 1)'''
-    return np.array((x ** 2 / (x**5 / 5 + 4/5),), dtype = np.float64)
+# Sine
+# sine wave
+# For initial value x = 0, y = (0, 1)
+sine = Problem(lambda x, y: np.array((y[1], -y[0])), # type: ignore
+               lambda x: np.array((np.sin(x), np.cos(x)), np.float64),
+               0., 10.)
 # ----------------------------------------------------------------------
-riccati = Problem(riccati_differential, 1., np.array((1.,), dtype = np.float64),
-                  riccati_solution, 2., riccati_solution(10.))
-# ======================================================================
-@nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
-def sine_differential(x, y):
-    '''sine wave'''
-    return np.array((y[1], -y[0]))
+# Exponential
+# exponential function y = exp(x)
+# For initial value x = 0, y = (1)
+exponential = Problem(lambda x, y: y,
+                      lambda x: np.array((np.exp(x),), np.float64),
+                      0., 10.)
 # ----------------------------------------------------------------------
-def sine_solution(x):
-    '''For initial value (0, 1)'''
-    return np.array((np.sin(x), np.cos(x)), dtype = np.float64)
-# ----------------------------------------------------------------------
-sine = Problem(sine_differential, 0., np.array((0., 1.), dtype = np.float64),
-                  sine_solution, 1., sine_solution(10.))
+problems = {'exponential': exponential,
+            'sine': sine,
+            'riccati': riccati}
 # ======================================================================
 scipy_integrators = {ni.RK23: RK23,
                      ni.RK45: RK45}

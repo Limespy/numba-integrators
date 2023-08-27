@@ -1,7 +1,6 @@
 'Basic integrators'
 import enum
 from typing import Iterable
-from typing import Union
 
 import numba as nb
 import numpy as np
@@ -134,21 +133,21 @@ def _step(fun: ODEFUN,
         return False, t, y, h_abs, direction *h_abs, K
     t_old = t
     y_old = y
-    min_step = 10. * np.abs(np.nextafter(t, direction * np.inf) - t)
+    eps = np.abs(np.nextafter(t_old, direction * np.inf) - t_old)
+    min_step = 8 * eps
 
     if h_abs < min_step:
         h_abs = min_step
 
     while True: # := not working
         if h_abs > max_step:
-            h_abs = max_step
-        h = h_abs * direction
+            h_abs = max_step - eps
+        h = h_abs #* direction
         # Updating
         t = t_old + h
-
         K[0] = K[-1]
 
-        if direction * (t - t_bound) >= 0:
+        if direction * (t - t_bound) >= 0: # End reached
             t = t_bound
             h = t - t_old
             h_abs = np.abs(h) # There is something weird going on here
@@ -278,11 +277,11 @@ def RK23_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK23(fun: ODEFUN,
          t0: float,
-         y0: Union[int, float, npAFloat64, Iterable],
+         y0: int | float | npAFloat64 | Iterable,
          t_bound: float,
          max_step: float = np.inf,
-         rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
-         atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
+         rtol: int | float | npAFloat64 | Iterable = 1e-3,
+         atol: int | float | npAFloat64 | Iterable = 1e-6,
          first_step: float = 0) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)
@@ -302,11 +301,11 @@ def RK45_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK45(fun: ODEFUN,
          t0: float,
-         y0: Union[int, float, npAFloat64, Iterable],
+         y0: int | float | npAFloat64 | Iterable,
          t_bound: float,
          max_step: float = np.inf,
-         rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
-         atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
+         rtol: int | float | npAFloat64 | Iterable = 1e-3,
+         atol: int | float | npAFloat64 | Iterable = 1e-6,
          first_step: float = 0.) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)

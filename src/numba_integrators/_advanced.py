@@ -151,14 +151,15 @@ def step_advanced(fun: ODEFUNA,
         return False, t, y, auxiliary, h_abs, h_abs, K
     t_old = t
     y_old = y
-    min_step = 10. * np.abs(np.nextafter(t, direction * np.inf) - t)
+    eps = np.abs(np.nextafter(t_old, direction * np.inf) - t_old)
+    min_step = 8 * eps
 
     if h_abs < min_step:
         h_abs = min_step
 
     while True: # := not working
         if h_abs > max_step:
-            h_abs = max_step
+            h_abs = max_step - eps
         h = h_abs * direction
         # Updating
         t = t_old + h
@@ -186,12 +187,10 @@ def step_advanced(fun: ODEFUNA,
 
         if error_norm < 1:
             h_abs *= (MAX_FACTOR if error_norm == 0 else
-                            min(MAX_FACTOR,
-                                SAFETY * error_norm ** error_exponent))
+                      min(MAX_FACTOR, SAFETY * error_norm ** error_exponent))
             return True, t, y, auxiliary, h_abs, h, K # Step is accepted
         else:
-            h_abs *= max(MIN_FACTOR,
-                                SAFETY * error_norm ** error_exponent)
+            h_abs *= max(MIN_FACTOR, SAFETY * error_norm ** error_exponent)
             if h_abs < min_step:
                 return False, t, y, auxiliary, h_abs, h, K # Too small step size
 # ----------------------------------------------------------------------
@@ -303,12 +302,12 @@ def Advanced(parameters_signature,
         # --------------------------------------------------------------
         def RK23_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0: Union[int, float, npAFloat64, Iterable],
+                          y0: int | float | npAFloat64 | Iterable,
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
-                          atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
+                          rtol: int | float | npAFloat64 | Iterable = 1e-3,
+                          atol: int | float | npAFloat64 | Iterable = 1e-6,
                           first_step: float = 0.) -> RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
@@ -334,12 +333,12 @@ def Advanced(parameters_signature,
         # --------------------------------------------------------------
         def RK45_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0: Union[int, float, npAFloat64, Iterable],
+                          y0: int | float | npAFloat64 | Iterable,
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol: Union[int, float, npAFloat64, Iterable] = 1e-3,
-                          atol: Union[int, float, npAFloat64, Iterable] = 1e-6,
+                          rtol: int | float | npAFloat64 | Iterable = 1e-3,
+                          atol: int | float | npAFloat64 | Iterable = 1e-6,
                           first_step: float = 0.) -> RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
