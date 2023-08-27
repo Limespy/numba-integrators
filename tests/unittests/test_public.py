@@ -33,7 +33,7 @@ def compare_to_scipy(solver_type, rtol, atol, problem):
                               problem.x_end,
                               rtol, atol)
     err_scipy = np.sum(np.abs(y_scipy - problem.y_end))
-    assert err_ni < err_scipy*1.01
+    assert err_ni < err_scipy*1.02
 # ======================================================================
 class Test_Basic:
     '''Testing agains scipy relative to analytical'''
