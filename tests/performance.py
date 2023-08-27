@@ -12,20 +12,25 @@ def time_dependent_accuracy() -> float:
 
     kwargs = dict(atol = 1e-10,
                   rtol = 1e-10)
-    solver = ni.RK45(ref.Riccati.differential, *ref.Riccati.initial, ref.Riccati.x_end, **kwargs)
+    solver = ni.RK45(ref.riccati.differential,
+                     ref.riccati.t0,
+                     ref.riccati.y0,
+                     ref.riccati.x_end,
+                     **kwargs)
     while ni.step(solver):
         ...
-    err_ni = np.abs(solver.y - ref.Riccati.y_end)
+    err_ni = np.abs(solver.y - ref.riccati.y_end)
     print(f'NI error {err_ni}')
     # ------------------------------------------------------------------
     # Scipy
     y_scipy = ref.scipy_solve(ni.RK45,
-                              ref.Riccati.differential,
-                              *ref.Riccati.initial,
-                              ref.Riccati.x_end,
+                              ref.riccati.differential,
+                              ref.riccati.t0,
+                              ref.riccati.y0,
+                              ref.riccati.x_end,
                               **kwargs)
 
-    err_scipy = np.abs(y_scipy - ref.Riccati.y_end)
+    err_scipy = np.abs(y_scipy - ref.riccati.y_end)
     print(f'Scipy error {err_scipy}')
 
     err_rel = float(err_ni / err_scipy)
