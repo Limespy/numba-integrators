@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 authors = [
     { name = "Limespy" },
@@ -36,11 +37,11 @@ Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Ch
 
 [tool.setuptools.dynamic.dependencies]
 file = [
-    "dependencies/main.txt",
+    "dependencies/requirements.txt",
 ]
 
 [tool.setuptools.dynamic.optional-dependencies.dev]
-file = "dependencies/dev.txt"
+file = "dependencies/requirements_dev.txt"
 
 [tool.setuptools.dynamic.optional-dependencies.build]
-file = "dependencies/build.txt"
+file = "dependencies/requirements_build.txt"

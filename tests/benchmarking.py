@@ -100,7 +100,7 @@ def timing():
 
     t0 = perf_counter()
     n = 0
-    while solver.status == "running":
+    while solver.status == 'running':
         solver.step()
         n += 1
 
