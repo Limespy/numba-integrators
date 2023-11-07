@@ -6,32 +6,34 @@ import numpy as np
 
 # ======================================================================
 def time_dependent_accuracy() -> float:
+    print('TIME DEPENDENT')
     import numba_integrators as ni
     from numba_integrators import reference as ref
-    from scipy.integrate import RK45
 
-    x_end = 10
-    y_analytical = ref.riccati_solution(x_end)
-    kwargs = dict(t_bound = x_end,
-                  atol = 1e-10,
+    kwargs = dict(atol = 1e-10,
                   rtol = 1e-10)
-    solver = RK45(ref.riccati_differential, *ref.riccati_initial, **kwargs)
-    while solver.status == 'running':
-        solver.step()
-    err_scipy = np.abs(solver.y - y_analytical)
-
-    solver = ni.RK45(ref.riccati_differential, *ref.riccati_initial, **kwargs)
+    solver = ni.RK45(ref.Riccati.differential, *ref.Riccati.initial, ref.Riccati.x_end, **kwargs)
     while ni.step(solver):
         ...
-    err_ni = np.abs(solver.y - y_analytical)
+    err_ni = np.abs(solver.y - ref.Riccati.y_end)
+    print(f'NI error {err_ni}')
+    # ------------------------------------------------------------------
+    # Scipy
+    y_scipy = ref.scipy_solve(ni.RK45,
+                              ref.Riccati.differential,
+                              *ref.Riccati.initial,
+                              ref.Riccati.x_end,
+                              **kwargs)
 
-    print(err_ni)
+    err_scipy = np.abs(y_scipy - ref.Riccati.y_end)
+    print(f'Scipy error {err_scipy}')
 
     err_rel = float(err_ni / err_scipy)
     print(f'Relative error to Scipy {err_rel}')
     return err_rel
 # ======================================================================
 def timing():
+    print('TIME INDEPENDENT')
     @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
     def f(t, y):
         return np.array((y[1], -y[0]))
@@ -41,12 +43,12 @@ def timing():
         return np.array((2*y[1], -y[0]))
 
     y0 = np.array((0., 1.))
-
+    t_end = 2000 * np.pi
     args = (f, 0.0, y0)
-    kwargs = dict(t_bound = 2000 * np.pi,
+    kwargs = dict(t_bound = t_end,
                   atol = 1e-10,
                   rtol = 1e-10)
-
+    y_analytical = np.sin(t_end)
 
     print('numba integrators')
 
@@ -67,7 +69,7 @@ def timing():
     print(f'Second initialisation: {t_init_second:.2f} s')
 
     t0 = perf_counter()
-    solver.step()
+    ni.step(solver)
     t_step_first = perf_counter() - t0
     print(f'First step: {t_step_first:.2f} s')
 
@@ -81,14 +83,16 @@ def timing():
     t_step = runtime / n
     print(f'Step overhead {t_step*1e6:.2f} μs')
 
-    err_ni = np.sum(np.abs(solver.y[0] - np.sin(solver.t)))
+    err_ni = float(np.sum(np.abs(solver.y[0] - y_analytical)))
 
-    print(err_ni)
+    print(f'NI error {err_ni}')
     results = {'time': {'import': t_import,
                         'first initialisation': t_init_first,
                         'second initialisation': t_init_second,
                         'first step': t_step_first,
                         'step': t_step}}
+    # ------------------------------------------------------------------
+    # Scipy
     print('scipy')
 
     t0 = perf_counter()
@@ -103,7 +107,7 @@ def timing():
 
     t0 = perf_counter()
     n = 1
-    while solver.status == "running":
+    while solver.status == 'running':
         solver.step()
         n += 1
 
@@ -111,12 +115,11 @@ def timing():
     print(f'Runtime with {n} steps: {runtime:.3f} s')
     print(f'Step overhead {runtime / n*1e6:.2f} μs')
 
-    err_scipy = np.sum(np.abs(solver.y[0] - np.sin(solver.t)))
-
+    err_scipy = float(np.sum(np.abs(solver.y[0] - y_analytical)))
+    print(f'Scipy error {err_scipy}')
     err_rel = float(err_ni / err_scipy)
-
-    print(err_rel)
-    return results, float(err_ni / err_scipy)
+    print(f'Relative error {err_rel}')
+    return results, err_rel
 # ======================================================================
 def main():
 
