@@ -1,7 +1,8 @@
 import warnings
+from collections.abc import Callable
+from collections.abc import Iterable
 from typing import Any
-from typing import Callable
-from typing import Iterable
+from typing import TypeAlias
 
 import numba as nb
 import numpy as np
@@ -19,11 +20,12 @@ IS_CACHE = True
 
 # Types
 
-npAFloat64 = NDArray[np.float64]
-npAInt64 = NDArray[np.int64]
+npAFloat64: TypeAlias = NDArray[np.float64]
+npAInt64: TypeAlias = NDArray[np.int64]
 
-ODEFUN  = Callable[[np.float64, npAFloat64], npAFloat64] # type: ignore
-ODEFUNA = Callable[[np.float64, npAFloat64, Any], tuple[npAFloat64, Any]] # type: ignore
+ODEFUN: TypeAlias  = Callable[[np.float64, npAFloat64], npAFloat64]
+ODEFUNA: TypeAlias = Callable[[np.float64, npAFloat64, Any],
+                              tuple[npAFloat64, Any]]
 
 # numba types
 # ----------------------------------------------------------------------
@@ -39,9 +41,9 @@ def nbA(dim = 1, dtype = nb.float64):
 # ----------------------------------------------------------------------
 @nb.njit(nb.float64(nb.float64[:]),
          fastmath = True, cache = IS_CACHE)
-def norm(x: npAFloat64) -> np.float64: # type: ignore
+def norm(x: npAFloat64) -> np.float64:
     """Compute RMS norm."""
-    return np.sqrt(np.sum(x * x) / x.size) # type: ignore
+    return np.sqrt(np.sum(x * x) / x.size)
 # ======================================================================
 RK23_error_estimator_order = np.int8(2)
 RK23_n_stages = np.int8(3)
@@ -104,7 +106,7 @@ def convert(y0: int | float | npAFloat64 | Iterable, # type: ignore
             rtol: int | float | npAFloat64 | Iterable, # type: ignore
             atol: int | float | npAFloat64 | Iterable # type: ignore
             ) -> tuple[npAFloat64, npAFloat64, npAFloat64]: # type: ignore
-    '''Converts y0 and tolerances into correct type of arrays'''
+    """Converts y0 and tolerances into correct type of arrays."""
     y0 = _into_1d_typearray(y0)
     return (y0,
             _into_1d_typearray(rtol, len(y0)),

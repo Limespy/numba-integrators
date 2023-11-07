@@ -116,6 +116,10 @@ print(auxiliary)
 - Fast forward
 - Refactoring
 
+## 0.2.2 2023-11-07 <!-- omit in toc -->
+
+- Dev tools update
+
 ## 0.2.1 2023-08-11 <!-- omit in toc -->
 
 - Advanced mode solver to handle functions with parameters and auxiliary output
