@@ -23,7 +23,7 @@ authors = [
 ]
 requires-python = ">=3.10"
 readme = "README.md"
-version = "0.2.1"
+version = "0.2.2"
 dynamic = [
     "dependencies",
     "optional-dependencies",
@@ -36,11 +36,11 @@ Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Ch
 
 [tool.setuptools.dynamic.dependencies]
 file = [
-    "dependencies/main.txt",
+    "dependencies/requirements.txt",
 ]
 
 [tool.setuptools.dynamic.optional-dependencies.dev]
-file = "dependencies/dev.txt"
+file = "dependencies/requirements_dev.txt"
 
 [tool.setuptools.dynamic.optional-dependencies.build]
-file = "dependencies/build.txt"
+file = "dependencies/requirements_build.txt"
