@@ -1,12 +1,14 @@
 """API for the package."""
-import enum
-from collections.abc import Generator
+import sys
+from collections.abc import Sequence
 from typing import Any
 from typing import Callable
 
 import numba as nb
 import numpy as np
+from limedev.CLI import function_cli
 
+from . import _structref as sr
 from ._advanced import Advanced
 from ._aux import IS_CACHE
 from ._aux import npAFloat64
@@ -45,3 +47,6 @@ def ff2cond(solver: Solver,
         if condition(solver, parameters):
             return True
     return False
+
+def main(args: Sequence[str] = sys.argv[1:]) -> int:
+    return function_cli(args, __name__)

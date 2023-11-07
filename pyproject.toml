@@ -30,6 +30,11 @@ dynamic = [
     "optional-dependencies",
 ]
 
+[project.scripts]
+numba-integrators = "numba_integrators:main"
+
+
+
 [project.urls]
 Homepage = "https://github.com/Limespy/numba-integrators"
 Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Changelog"

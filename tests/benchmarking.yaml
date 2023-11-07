@@ -26,11 +26,14 @@
       riccati: 1.0110138873746084
 0.3.1:
   time:
-    import [s]: 0.18231800012290478
-    first initialisation [s]: 1.7191150998696685
-    second initialisation [s]: 0.7656182995997369
-    first step [s]: 0.5949474000371993
-    step: 0.04357517749400855
+    import [s]: 0.1799627998843789
+    first initialisation [s]: 1.684298099949956
+    second initialisation [s]: 0.7709737000986934
+    first step [s]: 1.3043499998748302
+    step: 0.045292087611023275
+    first initialisation sr [s]: 0.748860000167042
+    second initialisation sr [s]: 0.5034946999512613
+    step sr: 0.04883533411919891
   accuracy:
     RK23:
       riccati: 0.9839230206396842

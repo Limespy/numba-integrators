@@ -14,6 +14,17 @@ kwargs = dict(t_bound = 20000 * np.pi,
                 rtol = 1e-8)
 # ======================================================================
 def RK45():
-    solver = ni.RK45(*args, **kwargs)
+    solver = ni.RK45(*args,
+                     t_bound = 20000 * np.pi,
+                     atol = 1e-8,
+                     rtol = 1e-8)
     while ni.step(solver):
+        ...
+# ======================================================================
+def RK45_structref():
+    solver = ni.sr.RK45(*args,
+                        x_bound = 20000 * np.pi,
+                        atol = 1e-8,
+                        rtol = 1e-8)
+    while ni.sr.step(solver):
         ...
