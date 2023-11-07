@@ -47,7 +47,7 @@ def timing():
 
     t0 = perf_counter()
     import numba_integrators as ni
-    times['import'] = perf_counter() - t0
+    times['import [s]'] = perf_counter() - t0
 
     from numba_integrators import reference as ref
 
@@ -65,15 +65,15 @@ def timing():
 
     t0 = perf_counter()
     solver = ni.RK45(g, problem.x0, problem.y0, **kwargs)
-    times['first initialisation'] = perf_counter() - t0
+    times['first initialisation [s]'] = perf_counter() - t0
     t0 = perf_counter()
 
     solver = ni.RK45(*args, **kwargs)
-    times['second initialisation'] = perf_counter() - t0
+    times['second initialisation [s]'] = perf_counter() - t0
 
     t0 = perf_counter()
     ni.step(solver)
-    times['first step'] = perf_counter() - t0
+    times['first step [s]'] = perf_counter() - t0
     n = 0
     t0 = perf_counter()
 

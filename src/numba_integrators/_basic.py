@@ -5,6 +5,7 @@ from typing import Iterable
 import numba as nb
 import numpy as np
 
+from ._aux import Arrayable
 from ._aux import convert
 from ._aux import IS_CACHE
 from ._aux import MAX_FACTOR
@@ -18,6 +19,7 @@ from ._aux import ODEFUN
 from ._aux import RK23_params
 from ._aux import RK45_params
 from ._aux import SAFETY
+from ._aux import Solver
 # ----------------------------------------------------------------------
 @nb.njit(nb.float64(nbODEtype,
                     nb.float64,
@@ -194,7 +196,7 @@ base_spec = (('A', nbARO(2)),
              ('rtol', nbARO(1)))
 # ----------------------------------------------------------------------
 @nb.experimental.jitclass(base_spec + (('fun', nbODEtype),))
-class RK:
+class RK(Solver):
     """Base class for explicit Runge-Kutta methods."""
 
     def __init__(self,
@@ -277,11 +279,11 @@ def RK23_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK23(fun: ODEFUN,
          t0: float,
-         y0: int | float | npAFloat64 | Iterable,
+         y0: Arrayable,
          t_bound: float,
          max_step: float = np.inf,
-         rtol: int | float | npAFloat64 | Iterable = 1e-3,
-         atol: int | float | npAFloat64 | Iterable = 1e-6,
+         rtol: Arrayable = 1e-3,
+         atol: Arrayable = 1e-6,
          first_step: float = 0) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)
@@ -301,18 +303,18 @@ def RK45_direct(fun: ODEFUN,
 # ----------------------------------------------------------------------
 def RK45(fun: ODEFUN,
          t0: float,
-         y0: int | float | npAFloat64 | Iterable,
+         y0: Arrayable,
          t_bound: float,
          max_step: float = np.inf,
-         rtol: int | float | npAFloat64 | Iterable = 1e-3,
-         atol: int | float | npAFloat64 | Iterable = 1e-6,
+         rtol: Arrayable = 1e-3,
+         atol: Arrayable = 1e-6,
          first_step: float = 0.) -> RK:
 
     y0, rtol, atol = convert(y0, rtol, atol)
     return RK45_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
 # ----------------------------------------------------------------------
 ALL = (RK23, RK45)
-class Solver(enum.Enum):
+class Solvers(enum.Enum):
     RK23 = RK23
     RK45 = RK45
     ALL = ALL

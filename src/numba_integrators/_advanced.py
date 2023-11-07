@@ -1,10 +1,9 @@
 from typing import Any
-from typing import Iterable
-from typing import Union
 
 import numba as nb
 import numpy as np
 
+from ._aux import Arrayable
 from ._aux import convert
 from ._aux import MAX_FACTOR
 from ._aux import MIN_FACTOR
@@ -16,8 +15,9 @@ from ._aux import ODEFUNA
 from ._aux import RK23_params
 from ._aux import RK45_params
 from ._aux import SAFETY
+from ._aux import Solver
 from ._basic import base_spec
-from ._basic import Solver
+from ._basic import Solvers
 # ----------------------------------------------------------------------
 def nbAdvanced_ODE_signature(parameters_type, auxiliary_type):
     return nb.types.Tuple((nb.float64[:],
@@ -31,39 +31,11 @@ def nbAdvanced_initial_step_signature(parameters_type, fun_type):
                         nb.float64[:],
                         parameters_type,
                         nb.float64[:],
-                        nb.int8,
+                        nb.float64,
                         nb.float64,
                         nbARO(1),
                         nbARO(1))
-# ----------------------------------------------------------------------
-def nbAdvanced_step_signature(parameters_type,
-                              auxiliary_type,
-                              fun_type):
-    return nb.types.Tuple((nb.boolean,
-                           nb.float64,
-                           nb.float64[:],
-                           auxiliary_type,
-                           nb.float64,
-                           nb.float64,
-                           nbA(2)))(fun_type,
-                                    nb.int8,
-                                    nb.float64,
-                                    nb.float64[:],
-                                    parameters_type,
-                                    nb.float64,
-                                    nb.float64,
-                                    nb.float64,
-                                    nbA(2),
-                                    nb.int8,
-                                    nbARO(1),
-                                    nbARO(1),
-                                    nbARO(2),
-                                    nbARO(1),
-                                    nbARO(1),
-                                    nbARO(1),
-                                    nb.float64,
-                                    auxiliary_type)
-
+# ======================================================================
 def select_initialstep_advanced(fun: ODEFUNA,
                                   t0: np.float64,
                                   y0: npAFloat64,
@@ -122,6 +94,34 @@ def select_initialstep_advanced(fun: ODEFUNA,
           else (max(d1, d2) * 100 ) ** error_exponent)
 
     return min(100 * h0, h1)
+# ----------------------------------------------------------------------
+def nbAdvanced_step_signature(parameters_type,
+                              auxiliary_type,
+                              fun_type):
+    return nb.types.Tuple((nb.boolean,
+                           nb.float64,
+                           nb.float64[:],
+                           auxiliary_type,
+                           nb.float64,
+                           nb.float64,
+                           nbA(2)))(fun_type,
+                                    nb.float64,
+                                    nb.float64,
+                                    nb.float64[:],
+                                    parameters_type,
+                                    nb.float64,
+                                    nb.float64,
+                                    nb.float64,
+                                    nbA(2),
+                                    nb.int8,
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nbARO(2),
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nbARO(1),
+                                    nb.float64,
+                                    auxiliary_type)
 # ----------------------------------------------------------------------
 def step_advanced(fun: ODEFUNA,
                   direction: np.float64,
@@ -194,25 +194,8 @@ def step_advanced(fun: ODEFUNA,
             if h_abs < min_step:
                 return False, t, y, auxiliary, h_abs, h, K # Too small step size
 # ----------------------------------------------------------------------
-def Advanced(parameters_signature,
-             auxiliary_signature,
-             solver):
-
-    fun_type = nbAdvanced_ODE_signature(parameters_signature,
-                                        auxiliary_signature).as_type()
-    nb_initial_step = nb.njit(nbAdvanced_initial_step_signature(parameters_signature,
-                                                                fun_type),
-                              fastmath = True)(select_initialstep_advanced)
-    nbstep_advanced = nb.njit(nbAdvanced_step_signature(parameters_signature,
-                                                         auxiliary_signature,
-                                                         fun_type)
-                                                         )(step_advanced)
-    # ------------------------------------------------------------------
-    @nb.experimental.jitclass(base_spec + (('parameters', parameters_signature),
-                                           ('auxiliary', auxiliary_signature),
-                                           ('fun', fun_type)))
-    class RK_Advanced:
-        """Base class for explicit Runge-Kutta methods."""
+class _RK_Advanced(Solver):
+        """Base class for advanced version of explicit Runge-Kutta methods."""
 
         def __init__(self, fun: ODEFUNA,
                      t0: float,
@@ -228,7 +211,9 @@ def Advanced(parameters_signature,
                      A: npAFloat64,
                      B: npAFloat64,
                      C: npAFloat64,
-                     E: npAFloat64):
+                     E: npAFloat64,
+                     nb_initial_step,
+                     nbstep_advanced):
             self.n_stages = n_stages
             self.A = A
             self.B = B
@@ -242,6 +227,8 @@ def Advanced(parameters_signature,
             self.atol = atol
             self.rtol = rtol
             self.max_step = max_step
+            self.initial_step = nb_initial_step
+            self._step = nbstep_advanced
 
             self.K = np.zeros((self.n_stages + 1, len(y0)),
                               dtype = self.y.dtype)
@@ -252,7 +239,7 @@ def Advanced(parameters_signature,
             self.error_exponent = -1 / (error_estimator_order + 1)
 
             if not first_step:
-                self.h_abs = nb_initial_step(
+                self.h_abs = self.initial_step(
                     self.fun, self.t, y0, self.parameters, self.K[-1], self.direction,
                     self.error_exponent, self.rtol, self.atol)
             else:
@@ -266,27 +253,51 @@ def Advanced(parameters_signature,
              self.auxiliary,
              self.h_abs,
              self.step_size,
-             self.K) = nbstep_advanced(self.fun,
-                                        self.direction,
-                                        self.t,
-                                        self.y,
-                                        self.parameters,
-                                        self.t_bound,
-                                        self.h_abs,
-                                        self.max_step,
-                                        self.K,
-                                        self.n_stages,
-                                        self.rtol,
-                                        self.atol,
-                                        self.A,
-                                        self.B,
-                                        self.C,
-                                        self.E,
-                                        self.error_exponent,
-                                        self.auxiliary)
+             self.K) = self._step(self.fun,
+                                self.direction,
+                                self.t,
+                                self.y,
+                                self.parameters,
+                                self.t_bound,
+                                self.h_abs,
+                                self.max_step,
+                                self.K,
+                                self.n_stages,
+                                self.rtol,
+                                self.atol,
+                                self.A,
+                                self.B,
+                                self.C,
+                                self.E,
+                                self.error_exponent,
+                                self.auxiliary)
             return running
+# ----------------------------------------------------------------------
+def Advanced(parameters_signature,
+             auxiliary_signature,
+             solver: Solvers):
+
+    fun_type = nbAdvanced_ODE_signature(parameters_signature,
+                                        auxiliary_signature).as_type()
+    signature_initial_step = nbAdvanced_initial_step_signature(
+        parameters_signature, fun_type)
+    nb_initial_step = nb.njit(signature_initial_step,
+                              fastmath = True)(select_initialstep_advanced)
+    signature_step = nbAdvanced_step_signature(parameters_signature,
+                                               auxiliary_signature,
+                                               fun_type)
+    nbstep_advanced = nb.njit(signature_step)(step_advanced)
     # ------------------------------------------------------------------
-    if solver in (Solver.RK23, Solver.ALL):
+
+    RK_Advanced = nb.experimental.jitclass(
+        base_spec + (('parameters', parameters_signature),
+                     ('auxiliary', auxiliary_signature),
+                     ('fun', fun_type),
+                     ('initial_step', signature_initial_step.as_type()),
+                     ('_step', signature_step.as_type()))
+        )(_RK_Advanced)
+    # ------------------------------------------------------------------
+    if solver in (Solvers.RK23, Solvers.ALL):
         @nb.njit
         def RK23_direct_advanced(fun: ODEFUNA,
                                  t0: float,
@@ -296,28 +307,29 @@ def Advanced(parameters_signature,
                                  max_step: float,
                                  rtol: npAFloat64,
                                  atol: npAFloat64,
-                                 first_step: float) -> RK_Advanced:
+                                 first_step: float) -> _RK_Advanced:
             return RK_Advanced(fun, t0, y0, parameters, t_bound, max_step,
-                               rtol, atol, first_step, *RK23_params)
+                               rtol, atol, first_step, *RK23_params,
+                               nb_initial_step, nbstep_advanced)
         # --------------------------------------------------------------
         def RK23_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0: int | float | npAFloat64 | Iterable,
+                          y0: Arrayable,
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol: int | float | npAFloat64 | Iterable = 1e-3,
-                          atol: int | float | npAFloat64 | Iterable = 1e-6,
-                          first_step: float = 0.) -> RK_Advanced:
+                          rtol: Arrayable = 1e-3,
+                          atol: Arrayable = 1e-6,
+                          first_step: float = 0.) -> _RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
             return RK23_direct_advanced(fun, t0, y0, parameters, t_bound,
                                         max_step, rtol, atol, first_step)
         # --------------------------------------------------------------
-        if solver == Solver.RK23:
+        if solver == Solvers.RK23:
             return RK23_advanced
     # ------------------------------------------------------------------
-    if solver in (Solver.RK45, Solver.ALL):
+    if solver in (Solvers.RK45, Solvers.ALL):
         @nb.njit
         def RK45_direct_advanced(fun,
                                  t0: float,
@@ -327,25 +339,26 @@ def Advanced(parameters_signature,
                                  max_step: float,
                                  rtol: npAFloat64,
                                  atol: npAFloat64,
-                                 first_step: float) -> RK_Advanced:
+                                 first_step: float) -> _RK_Advanced:
             return RK_Advanced(fun, t0, y0, parameters, t_bound, max_step,
-                               rtol, atol, first_step, *RK45_params)
+                               rtol, atol, first_step, *RK45_params,
+                               nb_initial_step, nbstep_advanced)
         # --------------------------------------------------------------
         def RK45_advanced(fun: ODEFUNA,
                           t0: float,
-                          y0: int | float | npAFloat64 | Iterable,
+                          y0: Arrayable,
                           parameters: Any,
                           t_bound: float,
                           max_step: float = np.inf,
-                          rtol: int | float | npAFloat64 | Iterable = 1e-3,
-                          atol: int | float | npAFloat64 | Iterable = 1e-6,
-                          first_step: float = 0.) -> RK_Advanced:
+                          rtol: Arrayable = 1e-3,
+                          atol: Arrayable = 1e-6,
+                          first_step: float = 0.) -> _RK_Advanced:
 
             y0, rtol, atol = convert(y0, rtol, atol)
             return RK45_direct_advanced(fun, t0, y0, parameters, t_bound,
                                         max_step, rtol, atol, first_step)
-        if solver == Solver.RK45:
+        if solver == Solvers.RK45:
             return RK45_advanced
     # ------------------------------------------------------------------
-    return {Solver.RK23: RK23_advanced,
-            Solver.RK45: RK45_advanced}
+    return {Solvers.RK23: RK23_advanced,
+            Solvers.RK45: RK45_advanced}

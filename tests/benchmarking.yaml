@@ -1,29 +1,35 @@
 0.2.1:
   time:
-    import: 0.6448862000834197
-    first initialisation: 1.5714604000095278
-    second initialisation: 0.6925065000541508
-    first step: 0.27792719984427094
+    import [s]: 0.6448862000834197
+    first initialisation [s]: 1.5714604000095278
+    second initialisation [s]: 0.6925065000541508
+    first step [s]: 0.27792719984427094
     step: 2.512107347589769e-06
   accuracy:
     time_independent: 1.0011247145618656
     time dependent: 0.9466700577253073
 0.2.2:
   time:
-    import: 0.04933429998345673
-    first initialisation: 1.4733992000110447
-    second initialisation: 0.7134553999931086
-    first step: 0.5785940999921877
-    step: 2.5812339524368863e-06
+    import [s]: 0.1845354000106454
+    first initialisation [s]: 1.5783317000605166
+    second initialisation [s]: 0.7640811000019312
+    first step [s]: 0.5813875002786517
+    step: 0.04453265735588175
   accuracy:
-    time_independent: 1.0011247145618656
-    time dependent: 0.9466700577253073
+    RK23:
+      exponential: 0.999999999999981
+      sine: 1.000000000000006
+      riccati: 0.9839230206396842
+    RK45:
+      exponential: 0.9999999999999976
+      sine: 1.0
+      riccati: 1.0110138873746084
 0.3.1:
   time:
-    import: 2.273431400069967
-    first initialisation: 1.5733912999276072
-    second initialisation: 0.7450971000362188
-    first step: 0.6253432999365032
+    import [s]: 2.273431400069967
+    first initialisation [s]: 1.5733912999276072
+    second initialisation [s]: 0.7450971000362188
+    first step [s]: 0.6253432999365032
     step: 0.04592413006821259
   accuracy:
     RK23:

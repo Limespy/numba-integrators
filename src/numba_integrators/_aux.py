@@ -1,4 +1,6 @@
 import warnings
+from abc import ABC
+from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from typing import Any
@@ -19,13 +21,35 @@ MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 IS_CACHE = True
 
 # Types
-
+npA: TypeAlias = NDArray[Any]
 npAFloat64: TypeAlias = NDArray[np.float64]
 npAInt64: TypeAlias = NDArray[np.int64]
 
 ODEFUN: TypeAlias  = Callable[[np.float64, npAFloat64], npAFloat64]
 ODEFUNA: TypeAlias = Callable[[np.float64, npAFloat64, Any],
                               tuple[npAFloat64, Any]]
+Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
+
+class Solver:
+    t_bound: np.float64
+
+    def __init__(self,
+                 fun: ODEFUN,
+                 t0: float,
+                 y0: npAFloat64,
+                 t_bound: float,
+                 max_step: float,
+                 rtol: npAFloat64,
+                 atol: npAFloat64,
+                 first_step: float,
+                 error_estimator_order: np.int8,
+                 n_stages: np.int8,
+                 A: npAFloat64,
+                 B: npAFloat64,
+                 C: npAFloat64,
+                 E: npAFloat64) -> None: ...
+    def step(self) -> bool:
+        return False
 
 # numba types
 # ----------------------------------------------------------------------
@@ -85,9 +109,9 @@ RK45_params  = (RK45_error_estimator_order,
                  RK45_C,
                  RK45_E)
 # ======================================================================
-def _into_1d_typearray(item: int | float | npAFloat64 | Iterable, # type: ignore
+def _into_1d_typearray(item: Arrayable,
                        length: int = 1,
-                       dtype: type = np.float64):
+                       dtype: type = np.float64) -> npA:
     if isinstance(item, np.ndarray):
         if item.ndim == 0:
             return np.full(length, item, dtype = dtype)
@@ -102,10 +126,8 @@ def _into_1d_typearray(item: int | float | npAFloat64 | Iterable, # type: ignore
     else:
         return np.full(length, item, dtype = dtype)
 # ----------------------------------------------------------------------
-def convert(y0: int | float | npAFloat64 | Iterable, # type: ignore
-            rtol: int | float | npAFloat64 | Iterable, # type: ignore
-            atol: int | float | npAFloat64 | Iterable # type: ignore
-            ) -> tuple[npAFloat64, npAFloat64, npAFloat64]: # type: ignore
+def convert(y0: Arrayable, rtol: Arrayable, atol: Arrayable
+            ) -> tuple[npAFloat64, npAFloat64, npAFloat64]:
     """Converts y0 and tolerances into correct type of arrays."""
     y0 = _into_1d_typearray(y0)
     return (y0,

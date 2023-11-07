@@ -1,5 +1,7 @@
-'''Unittests for public interface of the package.
-Classes are sorted alphabetically and related functions'''
+"""Unittests for public interface of the package.
+
+Classes are sorted alphabetically and related functions
+"""
 from itertools import product
 
 import numba as nb
@@ -9,7 +11,7 @@ import pytest
 from numba_integrators import reference as ref
 from numba_integrators._aux import npAFloat64
 # ======================================================================
-pytestmark = pytest.mark.filterwarnings("ignore::numba.core.errors.NumbaExperimentalFeatureWarning")
+pytestmark = pytest.mark.filterwarnings('ignore::numba.core.errors.NumbaExperimentalFeatureWarning')
 # ======================================================================
 # Auxiliaries
 def compare_to_scipy(solver_type, rtol, atol, problem):
@@ -36,15 +38,15 @@ def compare_to_scipy(solver_type, rtol, atol, problem):
     assert err_ni < err_scipy*1.02
 # ======================================================================
 class Test_Basic:
-    '''Testing agains scipy relative to analytical'''
+    """Testing agains scipy relative to analytical."""
     @pytest.mark.parametrize(('solver', 'problem'),
-                             product(ni.ALL, ref.problems.values()))
+                             product(ni.ALL, ref.Problem.problems))
     def test_to_scipy(self, solver, problem):
-        '''Comparison against scipy'''
+        """Comparison against scipy."""
         compare_to_scipy(solver, 1e-10, 1e-10, problem)
     # ------------------------------------------------------------------
     def test_max_step(self):
-        '''Test if the max step is strictly followed'''
+        """Test if the max step is strictly followed."""
         max_step = 1e-4
         low =  max_step * (1 - 1e-13)
         problem = ref.exponential
@@ -71,7 +73,7 @@ class Test_Advanced:
     parameters = (1., np.array((1., 1.), dtype = np.float64))
     # ------------------------------------------------------------------
     def test_all_class_creation(self):
-        Solvers = ni.Advanced(self.parameters_type, self.auxiliary_type, ni.Solver.ALL)
+        Solvers = ni.Advanced(self.parameters_type, self.auxiliary_type, ni.Solvers.ALL)
         assert isinstance(Solvers, dict)
     # ------------------------------------------------------------------
     @pytest.mark.parametrize('solver_type', (ni.RK23, ni.RK45))
@@ -81,10 +83,10 @@ class Test_Advanced:
                                   problem.x0,
                                   problem.y0,
                                   problem.x_end)
-        Solver = ni.Advanced(self.parameters_type, self.parameters_type, solver_type)
-        assert Solver is not None
-        assert not isinstance(Solver, dict)
-        solver_advanced = Solver(f_advanced,
+        Solvers = ni.Advanced(self.parameters_type, self.parameters_type, solver_type)
+        assert Solvers is not None
+        assert not isinstance(Solvers, dict)
+        solver_advanced = Solvers(f_advanced,
                                  problem.x0,
                                  problem.y0,
                                  self.parameters,
@@ -123,10 +125,10 @@ class Test_Advanced:
         assert all(np.all(y_b == y_a) for y_b, y_a in zip(y_base, y_advanced))
     # ------------------------------------------------------------------
     def test_max_step(self):
-        '''Test if the max step is strictly followed'''
+        """Test if the max step is strictly followed."""
         problem = ref.exponential
-        Solver = ni.Advanced(self.parameters_type, self.parameters_type, ni.RK45)
-        solver = Solver(f_advanced, problem.x0, problem.y0,
+        Solvers = ni.Advanced(self.parameters_type, self.parameters_type, ni.RK45)
+        solver = Solvers(f_advanced, problem.x0, problem.y0,
                                  self.parameters,
                                  problem.x_end)
         max_step = 1e-4
