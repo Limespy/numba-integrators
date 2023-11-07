@@ -32,25 +32,30 @@ Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
 
 class Solver:
     t_bound: np.float64
-
+    t: np.float64
+    y: npAFloat64
     def __init__(self,
                  fun: ODEFUN,
-                 t0: float,
+                 t0: np.float64,
                  y0: npAFloat64,
-                 t_bound: float,
-                 max_step: float,
+                 t_bound: np.float64,
+                 max_step: np.float64,
                  rtol: npAFloat64,
                  atol: npAFloat64,
-                 first_step: float,
+                 first_step: np.float64,
                  error_estimator_order: np.int8,
                  n_stages: np.int8,
                  A: npAFloat64,
                  B: npAFloat64,
                  C: npAFloat64,
                  E: npAFloat64) -> None: ...
+    # ------------------------------------------------------------------
     def step(self) -> bool:
         return False
-
+    # ------------------------------------------------------------------
+    @property
+    def state(self) -> Any:
+        return None
 # numba types
 # ----------------------------------------------------------------------
 def nbARO(dim = 1, dtype = nb.float64):

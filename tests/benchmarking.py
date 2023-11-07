@@ -17,8 +17,7 @@ def accuracy() -> dict[str, dict[str, float]]:
 
     accuracy = defaultdict(dict)
 
-    for Solver, (problem_name, problem) in product(ni.ALL,
-                                                   ref.problems.items()):
+    for Solver, problem in product(ni.ALL, ref.Problem.problems):
         solver = Solver(problem.differential,
                          problem.x0,
                          problem.y0,
@@ -36,7 +35,7 @@ def accuracy() -> dict[str, dict[str, float]]:
                                   problem.x_end,
                                   **kwargs)
         err_scipy = float(np.sum(np.abs(y_scipy - ref.riccati.y_end)))
-        accuracy[Solver.__name__][problem_name] = float(err_ni / err_scipy)
+        accuracy[Solver.__name__][problem.name] = float(err_ni / err_scipy)
     return dict(accuracy)
 # ======================================================================
 def timing():

@@ -195,83 +195,87 @@ def step_advanced(fun: ODEFUNA,
                 return False, t, y, auxiliary, h_abs, h, K # Too small step size
 # ----------------------------------------------------------------------
 class _RK_Advanced(Solver):
-        """Base class for advanced version of explicit Runge-Kutta methods."""
+    """Base class for advanced version of explicit Runge-Kutta methods."""
 
-        def __init__(self, fun: ODEFUNA,
-                     t0: float,
-                     y0: npAFloat64,
-                     parameters: Any,
-                     t_bound: float,
-                     max_step: float,
-                     rtol: npAFloat64,
-                     atol: npAFloat64,
-                     first_step: float,
-                     error_estimator_order: np.int8,
-                     n_stages: np.int8,
-                     A: npAFloat64,
-                     B: npAFloat64,
-                     C: npAFloat64,
-                     E: npAFloat64,
-                     nb_initial_step,
-                     nbstep_advanced):
-            self.n_stages = n_stages
-            self.A = A
-            self.B = B
-            self.C = C
-            self.E = E
-            self.fun = fun
-            self.t = t0
-            self.y = y0
-            self.parameters = parameters
-            self.t_bound = t_bound
-            self.atol = atol
-            self.rtol = rtol
-            self.max_step = max_step
-            self.initial_step = nb_initial_step
-            self._step = nbstep_advanced
+    def __init__(self, fun: ODEFUNA,
+                    t0: np.float64,
+                    y0: npAFloat64,
+                    parameters: Any,
+                    t_bound: np.float64,
+                    max_step: np.float64,
+                    rtol: npAFloat64,
+                    atol: npAFloat64,
+                    first_step: np.float64,
+                    error_estimator_order: np.int8,
+                    n_stages: np.int8,
+                    A: npAFloat64,
+                    B: npAFloat64,
+                    C: npAFloat64,
+                    E: npAFloat64,
+                    nb_initial_step,
+                    nbstep_advanced):
+        self.n_stages = n_stages
+        self.A = A
+        self.B = B
+        self.C = C
+        self.E = E
+        self.fun = fun
+        self.t = t0
+        self.y = y0
+        self.parameters = parameters
+        self.t_bound = t_bound
+        self.atol = atol
+        self.rtol = rtol
+        self.max_step = max_step
+        self.initial_step = nb_initial_step
+        self._step = nbstep_advanced
 
-            self.K = np.zeros((self.n_stages + 1, len(y0)),
-                              dtype = self.y.dtype)
-            self.K[-1], self.auxiliary = self.fun(self.t, # type: ignore
-                                                  self.y,
-                                                  self.parameters)
-            self.direction = np.float64(np.sign(t_bound - t0) if t_bound != t0 else 1)
-            self.error_exponent = -1 / (error_estimator_order + 1)
+        self.K = np.zeros((self.n_stages + 1, len(y0)),
+                            dtype = self.y.dtype)
+        self.K[-1], self.auxiliary = self.fun(self.t,
+                                                self.y,
+                                                self.parameters)
+        self.direction = np.float64(np.sign(t_bound - t0) if t_bound != t0 else 1)
+        self.error_exponent = -1 / (error_estimator_order + 1)
 
-            if not first_step:
-                self.h_abs = self.initial_step(
-                    self.fun, self.t, y0, self.parameters, self.K[-1], self.direction,
-                    self.error_exponent, self.rtol, self.atol)
-            else:
-                self.h_abs = np.abs(first_step)
-            self.step_size = self.direction * self.h_abs
-        # --------------------------------------------------------------
-        def step(self) -> bool:
-            (running,
-             self.t,
-             self.y,
-             self.auxiliary,
-             self.h_abs,
-             self.step_size,
-             self.K) = self._step(self.fun,
-                                self.direction,
-                                self.t,
-                                self.y,
-                                self.parameters,
-                                self.t_bound,
-                                self.h_abs,
-                                self.max_step,
-                                self.K,
-                                self.n_stages,
-                                self.rtol,
-                                self.atol,
-                                self.A,
-                                self.B,
-                                self.C,
-                                self.E,
-                                self.error_exponent,
-                                self.auxiliary)
-            return running
+        if not first_step:
+            self.h_abs = self.initial_step(
+                self.fun, self.t, y0, self.parameters, self.K[-1], self.direction,
+                self.error_exponent, self.rtol, self.atol)
+        else:
+            self.h_abs = np.abs(first_step)
+        self.step_size = self.direction * self.h_abs
+    # --------------------------------------------------------------
+    def step(self) -> bool:
+        (running,
+            self.t,
+            self.y,
+            self.auxiliary,
+            self.h_abs,
+            self.step_size,
+            self.K) = self._step(self.fun,
+                            self.direction,
+                            self.t,
+                            self.y,
+                            self.parameters,
+                            self.t_bound,
+                            self.h_abs,
+                            self.max_step,
+                            self.K,
+                            self.n_stages,
+                            self.rtol,
+                            self.atol,
+                            self.A,
+                            self.B,
+                            self.C,
+                            self.E,
+                            self.error_exponent,
+                            self.auxiliary)
+        return running
+    # ------------------------------------------------------------------
+    @property
+    def state(self) -> tuple[np.float64, npAFloat64, Any]:
+        return self.t, self.y, self.auxiliary
 # ----------------------------------------------------------------------
 def Advanced(parameters_signature,
              auxiliary_signature,
@@ -331,7 +335,7 @@ def Advanced(parameters_signature,
     # ------------------------------------------------------------------
     if solver in (Solvers.RK45, Solvers.ALL):
         @nb.njit
-        def RK45_direct_advanced(fun,
+        def RK45_direct_advanced(fun: ODEFUNA,
                                  t0: float,
                                  y0: npAFloat64,
                                  parameters: Any,

@@ -111,7 +111,7 @@ print(auxiliary)
 
 # Changelog <!-- omit in toc -->
 
-## 0.3.1 2023-08-27 <!-- omit in toc -->
+## 0.3.1 2023-11-07 <!-- omit in toc -->
 
 - Fast forward
 - Refactoring

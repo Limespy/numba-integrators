@@ -201,13 +201,13 @@ class RK(Solver):
 
     def __init__(self,
                  fun: ODEFUN,
-                 t0: float,
+                 t0: np.float64,
                  y0: npAFloat64,
-                 t_bound: float,
-                 max_step: float,
+                 t_bound: np.float64,
+                 max_step: np.float64,
                  rtol: npAFloat64,
                  atol: npAFloat64,
-                 first_step: float,
+                 first_step: np.float64,
                  error_estimator_order: np.int8,
                  n_stages: np.int8,
                  A: npAFloat64,
@@ -228,7 +228,7 @@ class RK(Solver):
         self.max_step = max_step
 
         self.K = np.zeros((self.n_stages + 1, len(y0)), dtype = self.y.dtype)
-        self.K[-1] = self.fun(self.t, self.y) # type: ignore
+        self.K[-1] = self.fun(self.t, self.y)
         self.direction = np.float64(np.sign(t_bound - t0) if t_bound != t0 else 1)
         self.error_exponent = -1 / (error_estimator_order + 1)
 
@@ -264,8 +264,12 @@ class RK(Solver):
                         self.error_exponent)
 
         return running
+    # ------------------------------------------------------------------
+    @property
+    def state(self) -> tuple[np.float64, npAFloat64]:
+        return self.t, self.y
 # ======================================================================
-@nb.njit(cache = False) # Some issue' in making caching jitclasses
+@nb.njit(cache = False) # Some issue in making caching jitclasses
 def RK23_direct(fun: ODEFUN,
                 t0: float,
                 y0: npAFloat64,
@@ -274,7 +278,14 @@ def RK23_direct(fun: ODEFUN,
                 rtol: npAFloat64,
                 atol: npAFloat64,
                 first_step: float) -> RK:
-    return RK(fun, t0, y0, t_bound, max_step, rtol, atol, first_step,
+    return RK(fun,
+              np.float64(t0),
+              y0,
+              np.float64(t_bound),
+              np.float64(max_step),
+              rtol,
+              atol,
+              np.float64(first_step),
               *RK23_params)
 # ----------------------------------------------------------------------
 def RK23(fun: ODEFUN,
@@ -289,7 +300,7 @@ def RK23(fun: ODEFUN,
     y0, rtol, atol = convert(y0, rtol, atol)
     return RK23_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
 # ----------------------------------------------------------------------
-@nb.njit(cache = False) # Some issue' in making caching jitclasses
+@nb.njit(cache = False) # Some issue in making caching jitclasses
 def RK45_direct(fun: ODEFUN,
                 t0: float,
                 y0: npAFloat64,
@@ -298,7 +309,14 @@ def RK45_direct(fun: ODEFUN,
                 rtol: npAFloat64,
                 atol: npAFloat64,
                 first_step: float) -> RK:
-    return RK(fun, t0, y0, t_bound, max_step, rtol, atol, first_step,
+    return RK(fun,
+              np.float64(t0),
+              y0,
+              np.float64(t_bound),
+              np.float64(max_step),
+              rtol,
+              atol,
+              np.float64(first_step),
               *RK45_params)
 # ----------------------------------------------------------------------
 def RK45(fun: ODEFUN,
@@ -312,7 +330,7 @@ def RK45(fun: ODEFUN,
 
     y0, rtol, atol = convert(y0, rtol, atol)
     return RK45_direct(fun, t0, y0, t_bound, max_step, rtol, atol, first_step)
-# ----------------------------------------------------------------------
+# ======================================================================
 ALL = (RK23, RK45)
 class Solvers(enum.Enum):
     RK23 = RK23

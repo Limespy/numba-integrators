@@ -1,5 +1,6 @@
 """API for the package."""
 import enum
+from collections.abc import Generator
 from typing import Any
 from typing import Callable
 
