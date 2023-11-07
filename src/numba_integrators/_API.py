@@ -1,4 +1,4 @@
-'''API for the package'''
+"""API for the package."""
 import enum
 from typing import Any
 from typing import Callable
@@ -288,7 +288,7 @@ def convert(y0: Union[int, float, npAFloat64, Iterable],
             rtol: Union[int, float, npAFloat64, Iterable],
             atol: Union[int, float, npAFloat64, Iterable]
             ) -> tuple[npAFloat64, npAFloat64, npAFloat64]:
-    '''Converts y0 and tolerances into correct type of arrays'''
+    """Converts y0 and tolerances into correct type of arrays."""
     y0 = _into_1d_typearray(y0)
     return (y0,
             _into_1d_typearray(rtol, len(y0)),
@@ -734,14 +734,14 @@ def Advanced(parameters_signature,
     return {Solver.RK23: RK23_advanced,
             Solver.RK45: RK45_advanced}
 # ======================================================================
-@nb.njit # type: ignore
+@nb.njit
 def step(solver) -> bool:
     return solver.step()
 # ======================================================================
 # FAST FORWARD
 @nb.njit
 def ff_to_t(solver, t_end: np.float64) -> bool:
-    '''Fast forwards to given time or t_bound'''
+    """Fast forwards to given time or t_bound."""
     t_bound = solver.t_bound
     is_not_last = t_bound > t_end
     if is_not_last:
@@ -757,9 +757,10 @@ def ff_to_t(solver, t_end: np.float64) -> bool:
 @nb.njit(nb.boolean(RK.class_type.instance_type, # type: ignore
                     nb.boolean(nb.float64, nb.float64[:]).as_type()),
          cache = True)
-def ff_to_cond(solver: RK, condition: Callable[[np.float64, npAFloat64], bool]
+def ff_to_cond(solver: RK, condition: Callable[[float | np.float64,
+                                                npAFloat64], bool]
                ) -> bool:
-    '''Fast forwards to given time or t_bound'''
+    """Fast forwards to given time or t_bound."""
     while solver.step():
         if condition(solver.t, solver.y):
             return True
@@ -767,9 +768,11 @@ def ff_to_cond(solver: RK, condition: Callable[[np.float64, npAFloat64], bool]
 # ----------------------------------------------------------------------
 @nb.njit
 def ff_to_cond_advanced(solver,
-                        condition: Callable[[float, npAFloat64, Any], bool]
+                        condition: Callable[[float | np.float64,
+                                             npAFloat64,
+                                             Any], bool]
                         ) -> bool:
-    '''Fast forwards to given time or t_bound'''
+    """Fast forwards to given time or t_bound."""
     while solver.step():
         if condition(solver.t, solver.y, solver.auxiliary):
             return True
