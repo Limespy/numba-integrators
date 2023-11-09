@@ -18,10 +18,10 @@ jobs:
         uses: actions/checkout@v4.1.1
         with:
           ref: main
-      - name: Set up Python 3.12
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4.7.1
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Install in editable mode
         run: |
           python -m pip install --upgrade pip
