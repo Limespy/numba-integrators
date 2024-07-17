@@ -1,7 +1,7 @@
-[![PyPI Package latest release](https://img.shields.io/pypi/v/numba-integrators.svg)][1]
-[![PyPI Wheel](https://img.shields.io/pypi/wheel/numba-integrators.svg)][1]
-[![Supported versions](https://img.shields.io/pypi/pyversions/numba-integrators.svg)][1]
-[![Supported implementations](https://img.shields.io/pypi/implementation/numba-integrators.svg)][1]
+[![PyPI Package latest release](https://img.shields.io/pypi/v/numba_integrators.svg)][1]
+[![PyPI Wheel](https://img.shields.io/pypi/wheel/numba_integrators.svg)][1]
+[![Supported versions](https://img.shields.io/pypi/pyversions/numba_integrators.svg)][1]
+[![Supported implementations](https://img.shields.io/pypi/implementation/numba_integrators.svg)][1]
 
 # Numba Integrators <!-- omit in toc -->
 
@@ -27,15 +27,21 @@ Here's how you can start
 Install Numba Integrators with pip
 
 ```
-pip install numba-integrators
+pip install numba_integrators
 ```
 
 ### Importing
 
-Import name is not the same as install name, `numba-integrators`.
+Import name is the same as install name, `numba_integrators`.
 
 ```python
 import numba_integrators
+```
+
+Since the package is accessed often,  abbreviation `ni` is used. The abbreviation is used throughout this document.
+
+```python
+import numba_integrators as ni
 ```
 
 ### Example
@@ -111,6 +117,11 @@ print(auxiliary)
 
 # Changelog <!-- omit in toc -->
 
+## 0.3.1 2024-07-18 <!-- omit in toc -->
+
+- Fast forward
+- Refactoring
+
 ## 0.2.2 2023-11-07 <!-- omit in toc -->
 
 - Dev tools update
@@ -131,6 +142,6 @@ print(auxiliary)
 
 - Inital working state
 
-[1]: <https://pypi.org/project/numba-integrators> "Project PyPI page"
+[1]: <https://pypi.org/project/numba_integrators> "Project PyPI page"
 [2]: <https://scipy.org/> "SciPy organisation homepage"
 [3]: <https://numba.pydata.org> "Numba organisation homepage"

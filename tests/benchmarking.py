@@ -1,133 +1,166 @@
-# type: ignore
 from time import perf_counter
 
 import numba as nb
 import numpy as np
-
-# ======================================================================
-def time_dependent_accuracy() -> float:
-    print('TIME DEPENDENT')
-    import numba_integrators as ni
-    from numba_integrators import reference as ref
-
-    kwargs = dict(atol = 1e-10,
-                  rtol = 1e-10)
-    solver = ni.RK45(ref.Riccati.differential, *ref.Riccati.initial, ref.Riccati.x_end, **kwargs)
-    while ni.step(solver):
-        ...
-    err_ni = np.abs(solver.y - ref.Riccati.y_end)
-    print(f'NI error {err_ni}')
-    # ------------------------------------------------------------------
-    # Scipy
-    y_scipy = ref.scipy_solve(ni.RK45,
-                              ref.Riccati.differential,
-                              *ref.Riccati.initial,
-                              ref.Riccati.x_end,
-                              **kwargs)
-
-    err_scipy = np.abs(y_scipy - ref.Riccati.y_end)
-    print(f'Scipy error {err_scipy}')
-
-    err_rel = float(err_ni / err_scipy)
-    print(f'Relative error to Scipy {err_rel}')
-    return err_rel
+from limedev.test import BenchmarkResultsType
+from limedev.test import eng_round
+from limedev.test import sigfig_round
 # ======================================================================
 def timing():
-    print('TIME INDEPENDENT')
-    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
-    def f(t, y):
-        return np.array((y[1], -y[0]))
-
-    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
-    def g(t, y):
-        return np.array((2*y[1], -y[0]))
-
-    y0 = np.array((0., 1.))
-    t_end = 2000 * np.pi
-    args = (f, 0.0, y0)
-    kwargs = dict(t_bound = t_end,
-                  atol = 1e-10,
-                  rtol = 1e-10)
-    y_analytical = np.sin(t_end)
-
-    print('numba integrators')
-
+    print('TIME')
+    times = {}
+    # setup
     t0 = perf_counter()
     import numba_integrators as ni
-    t_import = perf_counter() - t0
-    print(f'Import: {t_import:.2f} s')
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'import [{prefix}s]'] = rounded
 
-    t0 = perf_counter()
+    from numba_integrators import reference as ref
 
-    solver = ni.RK45(g, 0.0, y0, **kwargs)
-    t_init_first = perf_counter() - t0
-    print(f'First initialisation: {t_init_first:.2f} s')
-    t0 = perf_counter()
-
-    solver = ni.RK45(*args, **kwargs)
-    t_init_second = perf_counter() - t0
-    print(f'Second initialisation: {t_init_second:.2f} s')
-
-    t0 = perf_counter()
-    ni.step(solver)
-    t_step_first = perf_counter() - t0
-    print(f'First step: {t_step_first:.2f} s')
-
-
-    t0 = perf_counter()
-    n = 1
-    while ni.step(solver):
-        n += 1
-    runtime = perf_counter() - t0
-    print(f'Runtime with {n} steps: {runtime:.3f} s')
-    t_step = runtime / n
-    print(f'Step overhead {t_step*1e6:.2f} μs')
-
-    err_ni = float(np.sum(np.abs(solver.y[0] - y_analytical)))
-
-    print(f'NI error {err_ni}')
-    results = {'time': {'import': t_import,
-                        'first initialisation': t_init_first,
-                        'second initialisation': t_init_second,
-                        'first step': t_step_first,
-                        'step': t_step}}
+    problem = ref.exponential
+    x_end = 10
+    args = (problem.differential, problem.x0, problem.y0)
     # ------------------------------------------------------------------
     # Scipy
-    print('scipy')
+    # print('\nScipy')
 
     t0 = perf_counter()
     from scipy.integrate import RK45
-    print(f'Import: {perf_counter() - t0:.2f} s')
+    # print(f'Import: {perf_counter() - t0:.2f} s')
 
     t0 = perf_counter()
 
-    solver = RK45(*args, **kwargs)
+    solver = RK45(*args,
+                  t_bound = x_end,
+                  first_step = 1e-4,
+                  max_step = 1e-4)
     solver.step()
-    print(f'Initialisation: {perf_counter() - t0:.2f} s')
+    # print(f'Initialisation: {perf_counter() - t0:.2f} s')
 
     t0 = perf_counter()
-    n = 1
+    n = 0
     while solver.status == 'running':
         solver.step()
         n += 1
 
     runtime = perf_counter() - t0
-    print(f'Runtime with {n} steps: {runtime:.3f} s')
-    print(f'Step overhead {runtime / n*1e6:.2f} μs')
+    t_step_scipy = runtime / n
 
-    err_scipy = float(np.sum(np.abs(solver.y[0] - y_analytical)))
-    print(f'Scipy error {err_scipy}')
-    err_rel = float(err_ni / err_scipy)
-    print(f'Relative error {err_rel}')
-    return results, err_rel
+    print(f'Scipy runtime: {runtime:.3f} s')
+    # ------------------------------------------------------------------
+    # ni
+
+
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
+    def g(t, y):
+        return 1.1 * y
+
+    t0 = perf_counter()
+    solver = ni.RK45(g, problem.x0, problem.y0,
+                     t_bound = x_end,
+                     first_step = 1e-4,
+                     max_step = 1e-4)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first initialisation [{prefix}s]'] = rounded
+    t0 = perf_counter()
+
+    solver = ni.RK45(*args,
+                     t_bound = x_end,
+                     first_step = 1e-4,
+                     max_step = 1e-4)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'second initialisation [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+    ni.step(solver)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first step [{prefix}s]'] = rounded
+    n = 0
+    t0 = perf_counter()
+
+    while ni.step(solver):
+        n += 1
+
+    runtime = perf_counter() - t0
+    print(f'Numba Integrators runtime: {runtime:.3f} s')
+    t_step_ni = runtime / n
+    times['step'] = round(t_step_ni / t_step_scipy, 4)
+    # ------------------------------------------------------------------
+    # ni structref
+    sr = ni.sr
+    t0 = perf_counter()
+    solver = ni.sr.RK45(g, problem.x0, problem.y0,
+                     x_bound = x_end,
+                     first_step = 1e-4,
+                     max_step = 1e-4)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first initialisation sr [{prefix}s]'] = rounded
+    t0 = perf_counter()
+
+    solver = ni.sr.RK45(*args,
+                     x_bound = x_end,
+                     first_step = 1e-4,
+                     max_step = 1e-4)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'second initialisation sr [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+    ni.sr.step(solver)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first step [{prefix}s]'] = rounded
+    n = 0
+    t0 = perf_counter()
+    while sr.step(solver):
+        n += 1
+
+    runtime = perf_counter() - t0
+    print(f'Numba Integrators runtime: {runtime:.3f} s')
+    t_step_ni_nt = runtime / n
+
+    times['step sr'] = round(t_step_ni_nt / t_step_scipy, 4)
+    return times
 # ======================================================================
-def main():
+def accuracy() -> dict[str, dict[str, float]]:
+    print('ACCURACY')
+    import numba_integrators as ni
+    from numba_integrators import reference as ref
 
-    results, err_time_dependent = timing()
+    kwargs = dict(atol = 1e-10,
+                  rtol = 1e-10)
+
+    results = {}
+
+    for Solver in ni.ALL:
+        solver_results = {}
+        for problem in ref.Problem.problems:
+            solver = Solver(problem.differential,
+                            problem.x0,
+                            problem.y0,
+                            problem.x_end,
+                            **kwargs)
+            while ni.step(solver):
+                ...
+
+            err_ni = float(np.sum(np.abs(solver.y - ref.riccati.y_end)))
+
+            y_scipy = ref.scipy_solve(Solver,
+                                    problem.differential,
+                                    problem.x0,
+                                    problem.y0,
+                                    problem.x_end,
+                                    **kwargs)
+            err_scipy = float(np.sum(np.abs(y_scipy - ref.riccati.y_end)))
+            rel_err = float(err_ni / err_scipy) - 1.
+            if rel_err != 0.:
+                rel_err = float(np.sign(rel_err)) * sigfig_round(abs(rel_err), 3)
+            solver_results[problem.name] = rel_err
+        results[Solver.__name__] = solver_results
+    return results
+# ======================================================================
+def main() -> BenchmarkResultsType:
+    results = {'time': timing(),
+               'accuracy': accuracy()}
 
     import numba_integrators as ni
-
-    results['accuracy'] = {'time_independent': err_time_dependent,
-                           'time dependent': time_dependent_accuracy()}
 
     return ni.__version__, results
