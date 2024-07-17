@@ -33,12 +33,16 @@ dynamic = [
 [project.scripts]
 numba-integrators = "numba_integrators:main"
 
-
-
 [project.urls]
 Homepage = "https://github.com/Limespy/numba-integrators"
 Changelog = "https://github.com/Limespy/numba-integrators/blob/main/README.md#Changelog"
 "Issue Tracker" = "https://github.com/Limespy/numba-integrators/issues"
+
+[tool.limedev]
+full_name = "Numba Integrators"
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.setuptools.dynamic.dependencies]
 file = [
@@ -50,3 +54,8 @@ file = "dependencies/requirements_dev.txt"
 
 [tool.setuptools.dynamic.optional-dependencies.build]
 file = "dependencies/requirements_build.txt"
+
+[tool.setuptools.packages.find]
+where = [
+    "src",
+]
