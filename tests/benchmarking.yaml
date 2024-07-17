@@ -26,20 +26,21 @@
       riccati: 1.0110138873746084
 0.3.1:
   time:
-    import [s]: 0.1799627998843789
-    first initialisation [s]: 1.684298099949956
-    second initialisation [s]: 0.7709737000986934
-    first step [s]: 1.3043499998748302
-    step: 0.045292087611023275
-    first initialisation sr [s]: 0.748860000167042
-    second initialisation sr [s]: 0.5034946999512613
-    step sr: 0.04883533411919891
+    import [ms]: 268.0
+    first initialisation [s]: 1.7
+    second initialisation [ms]: 778.0
+    first step [ms]: 617.0
+    step: 0.0491
+    first initialisation sr [s]: 1.48
+    second initialisation sr [ms]: 542.0
+    first step [s]: 1.12
+    step sr: 0.0542
   accuracy:
     RK23:
-      riccati: 0.9839230206396842
-      sine: 1.000000000000006
-      exponential: 0.999999999999981
+      riccati: -0.0161
+      sine: 6.0e-15
+      exponential: -1.9e-14
     RK45:
-      riccati: 1.0110138873746084
-      sine: 1.0
-      exponential: 0.9999999999999976
+      riccati: 0.011
+      sine: 0.0
+      exponential: -2.44e-15

@@ -1,1 +1,1 @@
-limedev[package] >= 0.4.1
+limedev[package] >= 0.6.1

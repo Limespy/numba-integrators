@@ -1,4 +1,4 @@
-limedev >= 0.4.1
+limedev >= 0.6.1
 numba >= 0.57.0
 numpy >= 1.24.3
 scipy >= 1.11.1

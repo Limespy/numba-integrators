@@ -2,6 +2,9 @@ from time import perf_counter
 
 import numba as nb
 import numpy as np
+from limedev.test import BenchmarkResultsType
+from limedev.test import eng_round
+from limedev.test import sigfig_round
 # ======================================================================
 def timing():
     print('TIME')
@@ -9,7 +12,8 @@ def timing():
     # setup
     t0 = perf_counter()
     import numba_integrators as ni
-    times['import [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'import [{prefix}s]'] = rounded
 
     from numba_integrators import reference as ref
 
@@ -43,7 +47,6 @@ def timing():
     t_step_scipy = runtime / n
 
     print(f'Scipy runtime: {runtime:.3f} s')
-    # print('\nnumba integrators')
     # ------------------------------------------------------------------
     # ni
 
@@ -57,18 +60,21 @@ def timing():
                      t_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
-    times['first initialisation [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first initialisation [{prefix}s]'] = rounded
     t0 = perf_counter()
 
     solver = ni.RK45(*args,
                      t_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
-    times['second initialisation [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'second initialisation [{prefix}s]'] = rounded
 
     t0 = perf_counter()
     ni.step(solver)
-    times['first step [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first step [{prefix}s]'] = rounded
     n = 0
     t0 = perf_counter()
 
@@ -78,7 +84,7 @@ def timing():
     runtime = perf_counter() - t0
     print(f'Numba Integrators runtime: {runtime:.3f} s')
     t_step_ni = runtime / n
-    times['step'] = t_step_ni / t_step_scipy
+    times['step'] = round(t_step_ni / t_step_scipy, 4)
     # ------------------------------------------------------------------
     # ni structref
     sr = ni.sr
@@ -87,18 +93,21 @@ def timing():
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
-    times['first initialisation sr [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first initialisation sr [{prefix}s]'] = rounded
     t0 = perf_counter()
 
     solver = ni.sr.RK45(*args,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
-    times['second initialisation sr [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'second initialisation sr [{prefix}s]'] = rounded
 
     t0 = perf_counter()
     ni.sr.step(solver)
-    times['first step [s]'] = perf_counter() - t0
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times[f'first step [{prefix}s]'] = rounded
     n = 0
     t0 = perf_counter()
     while sr.step(solver):
@@ -108,15 +117,7 @@ def timing():
     print(f'Numba Integrators runtime: {runtime:.3f} s')
     t_step_ni_nt = runtime / n
 
-    times['step sr'] = t_step_ni_nt / t_step_scipy
-    # ------------------------------------------------------------------
-    # printing
-    for key, value in times.items():
-        if value < 0.1:
-            print(f'{key}: {value:.3f}')
-        else:
-            print(f'{key}: {value:.2f}')
-
+    times['step sr'] = round(t_step_ni_nt / t_step_scipy, 4)
     return times
 # ======================================================================
 def accuracy() -> dict[str, dict[str, float]]:
@@ -149,11 +150,14 @@ def accuracy() -> dict[str, dict[str, float]]:
                                     problem.x_end,
                                     **kwargs)
             err_scipy = float(np.sum(np.abs(y_scipy - ref.riccati.y_end)))
-            solver_results[problem.name] = float(err_ni / err_scipy)
+            rel_err = float(err_ni / err_scipy) - 1.
+            if rel_err != 0.:
+                rel_err = float(np.sign(rel_err)) * sigfig_round(abs(rel_err), 3)
+            solver_results[problem.name] = rel_err
         results[Solver.__name__] = solver_results
     return results
 # ======================================================================
-def main():
+def main() -> BenchmarkResultsType:
     results = {'time': timing(),
                'accuracy': accuracy()}
 
