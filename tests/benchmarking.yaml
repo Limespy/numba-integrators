@@ -44,3 +44,22 @@
       riccati: 0.011
       sine: 0.0
       exponential: -2.44e-15
+0.4.1:
+  time:
+    import [s]: 1.25
+    first initialisation [s]: 1.68
+    second initialisation [ms]: 805.0
+    first step [s]: 1.27
+    step: 0.0376
+    first initialisation sr [ms]: 745.0
+    second initialisation sr [ms]: 538.0
+    step sr: 0.0528
+  accuracy:
+    RK23:
+      riccati: -0.0161
+      sine: 6.0e-15
+      exponential: -1.9e-14
+    RK45:
+      riccati: 6.17
+      sine: -2.49e-09
+      exponential: -1.82e-09

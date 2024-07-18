@@ -1,4 +1,7 @@
+# pylint: skip-file
+"""This file has been generated automatically."""
 import numba as nb
+import numpy as np
 from numba.experimental import structref
 
 # Define a StructRef.
@@ -125,6 +128,10 @@ class RK(structref.StructRefProxy):
     def K(self):
         return RK_get_K(self)
 
+    @K.setter
+    def K(self, value):
+        RK_set_K(self, value)
+
 @nb.njit
 def RK_get_fun(self):
     return self.fun
@@ -196,6 +203,10 @@ def RK_get_E(self):
 @nb.njit
 def RK_get_K(self):
     return self.K
+
+@nb.njit
+def RK_set_K(self, value):
+    self.K = value
 
 structref.define_proxy(RK, RKType, ['fun',
                                     'x',

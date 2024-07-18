@@ -9,7 +9,7 @@ import numba_integrators as ni
 import numpy as np
 import scipy
 from numba_integrators._aux import npAFloat64
-from numba_integrators._aux import ODEFUN
+from numba_integrators._aux import ODEType
 # ======================================================================
 # Reference initial value problems
 JIT = nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
@@ -18,7 +18,7 @@ JIT = nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
 @dataclass
 class Problem:
     name: str
-    differential: ODEFUN
+    differential: ODEType
     solution: Callable[[float], npAFloat64]
     x0: float
     x_end: float
@@ -62,7 +62,7 @@ scipy_integrators = {ni.RK23: scipy.integrate.RK23,
                      ni.RK45: scipy.integrate.RK45}
 # ----------------------------------------------------------------------
 def scipy_solve(solver_type,
-                function: ODEFUN,
+                function: ODEType,
                 x0: float,
                 y0: npAFloat64,
                 x_end: float,

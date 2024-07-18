@@ -57,7 +57,7 @@ def timing():
 
     t0 = perf_counter()
     solver = ni.RK45(g, problem.x0, problem.y0,
-                     t_bound = x_end,
+                     x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
@@ -65,7 +65,7 @@ def timing():
     t0 = perf_counter()
 
     solver = ni.RK45(*args,
-                     t_bound = x_end,
+                     x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
@@ -87,9 +87,9 @@ def timing():
     times['step'] = round(t_step_ni / t_step_scipy, 4)
     # ------------------------------------------------------------------
     # ni structref
-    sr = ni.sr
+    from numba_integrators import structref as sr
     t0 = perf_counter()
-    solver = ni.sr.RK45(g, problem.x0, problem.y0,
+    solver = sr.RK45(g, problem.x0, problem.y0,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
@@ -97,7 +97,7 @@ def timing():
     times[f'first initialisation sr [{prefix}s]'] = rounded
     t0 = perf_counter()
 
-    solver = ni.sr.RK45(*args,
+    solver = sr.RK45(*args,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
@@ -105,7 +105,7 @@ def timing():
     times[f'second initialisation sr [{prefix}s]'] = rounded
 
     t0 = perf_counter()
-    ni.sr.step(solver)
+    sr.step(solver)
     rounded, prefix = eng_round(perf_counter() - t0)
     times[f'first step [{prefix}s]'] = rounded
     n = 0

@@ -1,7 +1,9 @@
+"""This file generates the module for."""
 import pathlib
 
 PATH_BASE = pathlib.Path(__file__).parent
 
+#         name   settable
 names = (('fun', False),
          ('x', False),
          ('y', False),
@@ -18,11 +20,14 @@ names = (('fun', False),
          ('B', False),
          ('C', False),
          ('E', False),
-         ('K', False))
+         ('K', True))
 
 clsname = 'RK'
 header = f'''\
+# pylint: skip-file
+"""This file has been generated automatically"""
 import numba as nb
+import numpy as np
 
 from numba.experimental import structref
 
@@ -45,6 +50,18 @@ moduleparts = [header,
 new = '    def __new__('
 new += ',\n                '.join(name for name, _ in (('cls', False), *names))
 new += '):'
+# new += '''
+#         K = np.zeros((n_stages + 1, len(y)), dtype = y.dtype)
+#         K[-1] = fun(x, y)'''
+#         direction = 1. if x_bound == x else np.sign(x_bound - x)
+
+#         if not first_step:
+#             h_abs = select_initial_step(
+#                 fun, x0, y0, K[-1], direction,
+#                 error_exponent, rtol, atol)
+#         else:
+#             h_abs = np.abs(first_step)
+#         step_size = direction * h_abs'''
 new += '\n        return structref.StructRefProxy.__new__('
 new += (',\n'+ 48* ' ').join(name for name, _ in (('cls', False), *names))
 new += ')'
@@ -79,3 +96,5 @@ proxy_start += '])'
 moduleparts.append(proxy_start)
 moduletext = '\n\n'.join(moduleparts)
 (PATH_BASE / '_structref_generated.py').write_text(moduletext)
+
+from . import _structref_generated
