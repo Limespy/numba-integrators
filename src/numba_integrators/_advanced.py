@@ -6,8 +6,11 @@ import numba as nb
 import numpy as np
 
 from ._aux import Arrayable
+from ._aux import base_spec
+from ._aux import calc_error_norm
 from ._aux import calc_tolerance
 from ._aux import convert
+from ._aux import h_prep
 from ._aux import MAX_FACTOR
 from ._aux import MIN_FACTOR
 from ._aux import nbA
@@ -19,12 +22,9 @@ from ._aux import ODEAType
 from ._aux import RK_params_type
 from ._aux import SAFETY
 from ._aux import Solver
-from ._basic import base_spec
-from ._basic import calc_error_norm
-from ._basic import calc_h0
-from ._basic import calc_h_abs
-from ._basic import h_prep
-from ._basic import step_prep
+from ._aux import step_prep
+from ._first_order import calc_h0
+from ._first_order import calc_h_abs
 # ======================================================================
 def nbAdvanced_ODE_signature(parameters_type: nbType,
                              auxiliary_type: nbType) -> nbSignature:

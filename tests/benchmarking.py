@@ -17,8 +17,8 @@ def timing():
 
     from numba_integrators import reference as ref
 
-    problem = ref.exponential
-    x_end = 10
+    problem = ref.sine
+    x_end = problem.x_end
     args = (problem.differential, problem.x0, problem.y0)
     # ------------------------------------------------------------------
     # Scipy
@@ -49,9 +49,9 @@ def timing():
     print(f'Scipy runtime: {runtime:.3f} s')
     # ------------------------------------------------------------------
     # ni
-
-
-    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
+    times['jitclass'] = {}
+    from numba_integrators._aux import nbA
+    @nb.njit(nbA(1)(nb.float64, nbA(1)))
     def g(t, y):
         return 1.1 * y
 
@@ -61,7 +61,7 @@ def timing():
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'first initialisation [{prefix}s]'] = rounded
+    times['jitclass'][f'first initialisation [{prefix}s]'] = rounded
     t0 = perf_counter()
 
     solver = ni.RK45(*args,
@@ -69,12 +69,12 @@ def timing():
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'second initialisation [{prefix}s]'] = rounded
+    times['jitclass'][f'second initialisation [{prefix}s]'] = rounded
 
     t0 = perf_counter()
     ni.step(solver)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'first step [{prefix}s]'] = rounded
+    times['jitclass'][f'first step [{prefix}s]'] = rounded
     n = 0
     t0 = perf_counter()
 
@@ -84,17 +84,20 @@ def timing():
     runtime = perf_counter() - t0
     print(f'Numba Integrators runtime: {runtime:.3f} s')
     t_step_ni = runtime / n
-    times['step'] = round(t_step_ni / t_step_scipy, 4)
+    times['jitclass']['step'] = round(t_step_ni / t_step_scipy, 4)
     # ------------------------------------------------------------------
     # ni structref
     from numba_integrators import structref as sr
+
+    times['structref'] = {}
+
     t0 = perf_counter()
     solver = sr.RK45(g, problem.x0, problem.y0,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'first initialisation sr [{prefix}s]'] = rounded
+    times['structref'][f'first initialisation sr [{prefix}s]'] = rounded
     t0 = perf_counter()
 
     solver = sr.RK45(*args,
@@ -102,22 +105,85 @@ def timing():
                      first_step = 1e-4,
                      max_step = 1e-4)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'second initialisation sr [{prefix}s]'] = rounded
+    times['structref'][f'second initialisation sr [{prefix}s]'] = rounded
 
     t0 = perf_counter()
     sr.step(solver)
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'first step [{prefix}s]'] = rounded
+    times['structref'][f'first step [{prefix}s]'] = rounded
     n = 0
     t0 = perf_counter()
     while sr.step(solver):
         n += 1
 
     runtime = perf_counter() - t0
-    print(f'Numba Integrators runtime: {runtime:.3f} s')
+    print(f'Numba Integrators structref runtime: {runtime:.3f} s')
     t_step_ni_nt = runtime / n
 
-    times['step sr'] = round(t_step_ni_nt / t_step_scipy, 4)
+    times['structref']['step'] = round(t_step_ni_nt / t_step_scipy, 4)
+    # ------------------------------------------------------------------
+    # # ni second order
+    state = sr.RK45(*args,
+                     x_bound = problem.x_end*500.,
+                     rtol = 1e-10,
+                     atol = 1e-10)
+    n = 0
+    t0 = perf_counter()
+    while sr.step(state):
+        ...
+
+    runtime = perf_counter() - t0
+    print(f'Numba Integrators first order runtime: {runtime:.3f} s')
+
+
+    times['2nd order'] = {}
+
+    @nb.njit(nb.float64[:](nb.float64, nbA(1), nbA(1)))
+    def g2(t, y, dy):
+        return 1.1 * y
+
+    problem = ref.sine2
+
+    t0 = perf_counter()
+    solver = ni.RK45_2(g2,
+                        problem.x0,
+                        problem.y0,
+                        problem.dy0,
+                        problem.x_end,
+                        rtol = 1e-10,
+                        atol = 1e-10)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['2nd order'][f'first initialisation [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+    solver = ni.RK45_2(problem.differential,
+                        problem.x0,
+                        problem.y0,
+                        problem.dy0,
+                        problem.x_end*500.,
+                        rtol = 1e-10,
+                        atol = 1e-10)
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['2nd order'][f'second initialisation [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+    solver.step()
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['2nd order'][f'first step [{prefix}s]'] = rounded
+
+
+    n = 0
+    t0 = perf_counter()
+    while solver.step():
+        n += 1
+    runtime = perf_counter() - t0
+
+    print(f'Numba Integrators second order runtime: {runtime:.3f} s')
+
+    t_step_ni_nt = runtime / n
+
+    times['2nd order']['step'] = round(t_step_ni_nt / t_step_scipy, 4)
+
     return times
 # ======================================================================
 def accuracy() -> dict[str, dict[str, float]]:
@@ -130,7 +196,7 @@ def accuracy() -> dict[str, dict[str, float]]:
 
     results = {}
 
-    for Solver in ni.ALL:
+    for Solver in ni.Solvers:
         solver_results = {}
         for problem in ref.Problem.problems:
             solver = Solver(problem.differential,

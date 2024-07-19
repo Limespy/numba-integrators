@@ -46,20 +46,28 @@
       exponential: -2.44e-15
 0.4.1:
   time:
-    import [s]: 1.25
-    first initialisation [s]: 1.68
-    second initialisation [ms]: 805.0
-    first step [s]: 1.27
-    step: 0.0376
-    first initialisation sr [ms]: 745.0
-    second initialisation sr [ms]: 538.0
-    step sr: 0.0528
+    import [ms]: 274.0
+    jitclass:
+      first initialisation [s]: 2.13
+      second initialisation [s]: 1.06
+      first step [s]: 1.01
+      step: 0.0543
+    structref:
+      first initialisation sr [s]: 1.86
+      second initialisation sr [ms]: 656.0
+      first step [s]: 1.25
+      step: 0.0511
+    2nd order:
+      first initialisation [s]: 2.44
+      second initialisation [s]: 1.47
+      first step [s]: 2.03
+      step: 0.0806
   accuracy:
     RK23:
-      riccati: -0.0161
-      sine: 6.0e-15
-      exponential: -1.9e-14
+      riccati: -0.00561
+      sine: 5.33e-15
+      exponential: 1.22e-14
     RK45:
-      riccati: 6.17
-      sine: -2.49e-09
-      exponential: -1.82e-09
+      riccati: -0.00168
+      sine: -9.99e-16
+      exponential: 7.99e-15

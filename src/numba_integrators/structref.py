@@ -7,6 +7,7 @@ import numba as nb
 import numpy as np
 
 from ._aux import Arrayable
+from ._aux import calc_error_norm
 from ._aux import convert
 from ._aux import IS_CACHE
 from ._aux import MAX_FACTOR
@@ -16,10 +17,9 @@ from ._aux import ODEType
 from ._aux import RK23_params
 from ._aux import RK45_params
 from ._aux import SAFETY
-from ._basic import calc_error_norm
-from ._basic import h_prep
-from ._basic import select_initial_step
-from ._basic import step_prep
+from ._aux import step_prep
+from ._first_order import h_prep
+from ._first_order import select_initial_step
 from ._structref_generated import RK
 # ======================================================================
 @nb.njit(cache = IS_CACHE)
@@ -59,8 +59,7 @@ def step(state: RK) -> bool:
 
         if error_norm < 1:
             h_abs *= (MAX_FACTOR if error_norm == 0 else
-                            min(MAX_FACTOR,
-                                SAFETY * error_norm ** state.error_exponent))
+                    min(MAX_FACTOR, SAFETY * error_norm ** state.error_exponent))
             state.K = K # type: ignore[misc]
             state.h_abs = h_abs # type: ignore[misc]
             state.step_size = h # type: ignore[misc]

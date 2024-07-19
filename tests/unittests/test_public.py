@@ -60,7 +60,6 @@ class Test_Basic:
             assert low < (solver.x - x_prev) <= max_step
             x_prev = solver.x
 # ======================================================================
-# ----------------------------------------------------------------------
 exponential_diff = ref.exponential.differential
 @nb.njit()
 def f_advanced(x: float, y: npAFloat64, p):

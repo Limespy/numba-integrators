@@ -9,8 +9,11 @@ from limedev.CLI import get_main
 from ._advanced import Advanced
 from ._aux import Solver
 from ._basic import RK23
+from ._basic import RK23_2
 from ._basic import RK45
+from ._basic import RK45_2
 from ._basic import Solvers
+from ._basic import Solvers2
 # ======================================================================
 @nb.njit
 def step(solver: Solver) -> bool:
