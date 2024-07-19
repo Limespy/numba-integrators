@@ -12,10 +12,11 @@ from ._aux import MAX_FACTOR
 from ._aux import MIN_FACTOR
 from ._aux import nbA
 from ._aux import nbARO
+from ._aux import nbSignature
+from ._aux import nbType
 from ._aux import npAFloat64
 from ._aux import ODEAType
-from ._aux import RK23_params
-from ._aux import RK45_params
+from ._aux import RK_params_type
 from ._aux import SAFETY
 from ._aux import Solver
 from ._basic import base_spec
@@ -23,16 +24,17 @@ from ._basic import calc_error_norm
 from ._basic import calc_h0
 from ._basic import calc_h_abs
 from ._basic import h_prep
-from ._basic import Solvers
 from ._basic import step_prep
 # ======================================================================
-def nbAdvanced_ODE_signature(parameters_type, auxiliary_type):
+def nbAdvanced_ODE_signature(parameters_type: nbType,
+                             auxiliary_type: nbType) -> nbSignature:
     return nb.types.Tuple((nb.float64[:],
                            auxiliary_type))(nb.float64,
                                             nb.float64[:],
                                             parameters_type)
 # ----------------------------------------------------------------------
-def nbAdvanced_initial_step_signature(parameters_type, fun_type):
+def nbAdvanced_initial_step_signature(parameters_type: nbType,
+                                      fun_type: nbType) -> nbSignature:
     return nb.float64(fun_type,
                         nb.float64,
                         nb.float64[:],
@@ -43,15 +45,24 @@ def nbAdvanced_initial_step_signature(parameters_type, fun_type):
                         nbARO(1),
                         nbARO(1))
 # ======================================================================
+InitialStepFType: TypeAlias = Callable[[ODEAType,
+                                        np.float64,
+                                        npAFloat64,
+                                        Any,
+                                        npAFloat64,
+                                        np.float64,
+                                        np.float64,
+                                        npAFloat64,
+                                        npAFloat64], np.float64]
 def select_initial_step(fun: ODEAType,
-                                  x0: np.float64,
-                                  y0: npAFloat64,
-                                  parameters: npAFloat64,
-                                  dy0: npAFloat64,
-                                  direction: np.float64,
-                                  error_exponent: np.float64,
-                                  rtol: npAFloat64,
-                                  atol: npAFloat64) -> np.float64:
+                        x0: np.float64,
+                        y0: npAFloat64,
+                        parameters: Any,
+                        dy0: npAFloat64,
+                        direction: np.float64,
+                        error_exponent: np.float64,
+                        rtol: npAFloat64,
+                        atol: npAFloat64) -> np.float64:
     """Empirically select a good initial step.
 
     The algorithm is described in [1]_.
@@ -60,12 +71,12 @@ def select_initial_step(fun: ODEAType,
     ----------
     fun : callable
         Right-hand side of the system.
-    t0 : float
+    x0 : float
         Initial value of the independent variable.
     y0 : ndarray, shape (n,)
         Initial value of the dependent variable.
     f0 : ndarray, shape (n,)
-        Initial value of the derivative, i.e., ``fun(t0, y0)``.
+        Initial value of the derivative, i.e., ``fun(x0, y0)``.
     direction : float
         Integration direction.
     error_exponent : np.float64
@@ -92,8 +103,8 @@ def select_initial_step(fun: ODEAType,
     dy1 = fun(x0 + h0 * direction, y1, parameters)[0]
     return calc_h_abs(dy1 - dy0, h0, scale, error_exponent, d1)
 # ----------------------------------------------------------------------
-def nbAdvanced_step_signature(parameters_type,
-                              auxiliary_type,
+def nbAdvanced_step_signature(parameters_type: nbType,
+                              auxiliary_type: nbType,
                               fun_type):
     return nb.types.Tuple((nb.boolean,
                            nb.float64,
@@ -121,33 +132,33 @@ def nbAdvanced_step_signature(parameters_type,
                                     auxiliary_type)
 # ----------------------------------------------------------------------
 def step(fun: ODEAType,
-                  direction: np.float64,
-                  x: np.float64,
-                  y: npAFloat64,
-                  parameters: Any,
-                  x_bound: np.float64,
-                  h_abs: np.float64,
-                  max_step: np.float64,
-                  K: npAFloat64,
-                  n_stages: np.int8,
-                  rtol: npAFloat64,
-                  atol: npAFloat64,
-                  A: npAFloat64,
-                  B: npAFloat64,
-                  C: npAFloat64,
-                  E: npAFloat64,
-                  error_exponent: np.float64,
-                  auxiliary: Any) -> tuple[bool,
-                                            np.float64,
-                                            npAFloat64,
-                                            Any,
-                                            np.float64,
-                                            np.float64,
-                                            npAFloat64]:
+        direction: np.float64,
+        x: np.float64,
+        y: npAFloat64,
+        parameters: Any,
+        x_bound: np.float64,
+        h_abs: np.float64,
+        max_step: np.float64,
+        K: npAFloat64,
+        n_stages: np.int8,
+        rtol: npAFloat64,
+        atol: npAFloat64,
+        A: npAFloat64,
+        B: npAFloat64,
+        C: npAFloat64,
+        E: npAFloat64,
+        error_exponent: np.float64,
+        auxiliary: Any) -> tuple[bool,
+                                np.float64,
+                                npAFloat64,
+                                Any,
+                                np.float64,
+                                np.float64,
+                                npAFloat64]:
     if direction * (x - x_bound) >= 0: # x_bound has been reached
         return False, x, y, auxiliary, h_abs, h_abs, K
     y_old = y
-    h_abs, x_old, eps, min_step = step_prep(x, direction)
+    h_abs, x_old, eps, min_step = step_prep(h_abs, x, direction)
 
     while True: # := not working
         x, h, h_abs = h_prep(h_abs, max_step, eps, x_old, x_bound, direction)
@@ -174,11 +185,11 @@ def step(fun: ODEAType,
             if h_abs < min_step:
                 return False, x, y, auxiliary, h_abs, h, K # Too small step size
 # ----------------------------------------------------------------------
-class RKA(Solver):
+class RKA:
     """Base class for advanced version of explicit Runge-Kutta methods."""
 
     def __init__(self, fun: ODEAType,
-                    t0: np.float64,
+                    x0: np.float64,
                     y0: npAFloat64,
                     parameters: Any,
                     x_bound: np.float64,
@@ -192,7 +203,7 @@ class RKA(Solver):
                     B: npAFloat64,
                     C: npAFloat64,
                     E: npAFloat64,
-                    nb_initial_step,
+                    nb_initial_step: InitialStepFType,
                     nbstep_advanced):
         self.n_stages = n_stages
         self.A = A
@@ -200,7 +211,7 @@ class RKA(Solver):
         self.C = C
         self.E = E
         self.fun = fun
-        self.x = t0
+        self.x = x0
         self.y = y0
         self.parameters = parameters
         self.x_bound = x_bound
@@ -215,7 +226,7 @@ class RKA(Solver):
         self.K[-1], self.auxiliary = self.fun(self.x,
                                                 self.y,
                                                 self.parameters)
-        self.direction = np.float64(np.sign(x_bound - t0) if x_bound != t0 else 1)
+        self.direction = np.float64(1. if x_bound == x0 else np.sign(x_bound - x0))
         self.error_exponent = error_exponent
 
         if not first_step:
@@ -267,92 +278,110 @@ AdvancedSolver: TypeAlias = Callable[[ODEAType,
                                       Arrayable,
                                       float],
                                      RKA]
-def Advanced(parameters_signature,
-             auxiliary_signature,
-             solver: Solvers) -> AdvancedSolver | dict[Solvers, AdvancedSolver]:
-    """Generates the advanced solver based on the given signatures."""
-    fun_type = nbAdvanced_ODE_signature(parameters_signature,
-                                        auxiliary_signature).as_type()
+# ----------------------------------------------------------------------
+def _Advanced_make_init_RK(parameters_type: nbType,
+                           auxiliary_type: nbType):
+
+    fun_type = nbAdvanced_ODE_signature(parameters_type,
+                                        auxiliary_type).as_type()
     signature_initial_step = nbAdvanced_initial_step_signature(
-        parameters_signature, fun_type)
+        parameters_type, fun_type)
     nb_initial_step = nb.njit(signature_initial_step,
                               fastmath = True)(select_initial_step)
-    signature_step = nbAdvanced_step_signature(parameters_signature,
-                                               auxiliary_signature,
+    signature_step = nbAdvanced_step_signature(parameters_type,
+                                               auxiliary_type,
                                                fun_type)
     nbstep_advanced = nb.njit(signature_step)(step)
-    # ------------------------------------------------------------------
 
     nbRKA = nb.experimental.jitclass(base_spec
-                  + (('parameters', parameters_signature),
-                     ('auxiliary', auxiliary_signature),
+                  + (('parameters', parameters_type),
+                     ('auxiliary', auxiliary_type),
                      ('fun', fun_type),
                      ('initial_step', signature_initial_step.as_type()),
                      ('_step', signature_step.as_type()))
                                            )(RKA)
     # ------------------------------------------------------------------
-    if solver in (Solvers.RK23, Solvers.ALL):
-        @nb.njit
-        def RK23_direct_advanced(fun: ODEAType,
-                                 t0: float,
-                                 y0: npAFloat64,
-                                 parameters: Any,
-                                 x_bound: float,
-                                 max_step: float,
-                                 rtol: npAFloat64,
-                                 atol: npAFloat64,
-                                 first_step: float) -> RKA:
-            return nbRKA(fun, t0, y0, parameters, x_bound, max_step,
-                               rtol, atol, first_step, *RK23_params,
-                               nb_initial_step, nbstep_advanced)
-        # --------------------------------------------------------------
-        def RK23_advanced(fun: ODEAType,
-                          t0: float,
-                          y0: Arrayable,
-                          parameters: Any,
-                          x_bound: float,
-                          max_step: float = np.inf,
-                          rtol: Arrayable = 1e-3,
-                          atol: Arrayable = 1e-6,
-                          first_step: float = 0.) -> RKA:
+    @nb.njit
+    def init_RK(fun: ODEAType,
+            x0: np.float64,
+            y0: npAFloat64,
+            parameters,
+            x_bound: np.float64,
+            max_step: np.float64,
+            rtol: npAFloat64,
+            atol: npAFloat64,
+            first_step: np.float64,
+            solver_params: RK_params_type) -> RKA:
+        return nbRKA(fun,
+                x0,
+                y0,
+                parameters,
+                x_bound,
+                max_step,
+                rtol,
+                atol,
+                first_step,
+                *solver_params,
+                nb_initial_step,
+                nbstep_advanced)
+    return init_RK
+# ----------------------------------------------------------------------
+def _Advanced_nb_prep(parameters_type: nbType,
+                      auxiliary_type: nbType,
+                      signature_hash: int):
+    if (output := _advanced_solver_cache.get(signature_hash)) is None:
+        output = _Advanced_make_init_RK(parameters_type,
+                                        auxiliary_type)
+        _advanced_solver_cache[signature_hash] = output
+    return output
+# ----------------------------------------------------------------------
+def _Advanced(parameters_type: nbType,
+             auxiliary_type: nbType,
+             solver: Solver,
+             signature_hash: int) -> AdvancedSolver:
+    """Generates the advanced solver based on the given signatures."""
+    solver_params = solver._solver_params
+    init_RK = _Advanced_nb_prep(parameters_type,
+                                auxiliary_type,
+                                signature_hash)
 
-            y0, rtol, atol = convert(y0, rtol, atol)
-            return RK23_direct_advanced(fun, t0, y0, parameters, x_bound,
-                                        max_step, rtol, atol, first_step)
-        # --------------------------------------------------------------
-        if solver != Solvers.ALL:
-            return RK23_advanced
+    def RK_advanced(fun: ODEAType,
+                    x0: float,
+                    y0: Arrayable,
+                    parameters: Any,
+                    x_bound: float,
+                    max_step: float = np.inf,
+                    rtol: Arrayable = 1e-3,
+                    atol: Arrayable = 1e-6,
+                    first_step: float = 0.) -> RKA:
+        y0, rtol, atol = convert(y0, rtol, atol)
+        return init_RK(fun,
+                        np.float64(x0),
+                        y0,
+                        parameters,
+                        np.float64(x_bound),
+                        np.float64(max_step),
+                        rtol,
+                        atol,
+                        np.float64(first_step),
+                        solver_params)
     # ------------------------------------------------------------------
-    if solver in (Solvers.RK45, Solvers.ALL):
-        @nb.njit
-        def RK45_direct_advanced(fun: ODEAType,
-                                 t0: float,
-                                 y0: npAFloat64,
-                                 parameters: Any,
-                                 x_bound: float,
-                                 max_step: float,
-                                 rtol: npAFloat64,
-                                 atol: npAFloat64,
-                                 first_step: float) -> RKA:
-            return nbRKA(fun, t0, y0, parameters, x_bound, max_step,
-                               rtol, atol, first_step, *RK45_params,
-                               nb_initial_step, nbstep_advanced)
-        # --------------------------------------------------------------
-        def RK45_advanced(fun: ODEAType,
-                          t0: float,
-                          y0: Arrayable,
-                          parameters: Any,
-                          x_bound: float,
-                          max_step: float = np.inf,
-                          rtol: Arrayable = 1e-3,
-                          atol: Arrayable = 1e-6,
-                          first_step: float = 0.) -> RKA:
+    return RK_advanced
+# ----------------------------------------------------------------------
+_advanced_solver_cache: dict[int, AdvancedSolver] = {}
+# ----------------------------------------------------------------------
+def Advanced(parameters_type: nbType,
+             auxiliary_type: nbType,
+             solver: Solver) -> AdvancedSolver:
+    """Generates the advanced solver based on the given signatures.
 
-            y0, rtol, atol = convert(y0, rtol, atol)
-            return RK45_direct_advanced(fun, t0, y0, parameters, x_bound,
-                                        max_step, rtol, atol, first_step)
-        if solver != Solvers.ALL:
-            return RK45_advanced
-    # ------------------------------------------------------------------
-    return {Solvers.RK23: RK23_advanced,
-            Solvers.RK45: RK45_advanced}
+    Uses memoization
+    """
+    signature_hash = hash(parameters_type) ^ hash(auxiliary_type)
+    full_hash = signature_hash ^ hash(solver)
+    if (output := _advanced_solver_cache.get(full_hash)) is None:
+        output = _Advanced(parameters_type,
+                           auxiliary_type, solver,
+                           signature_hash)
+        _advanced_solver_cache[full_hash] = output
+    return output

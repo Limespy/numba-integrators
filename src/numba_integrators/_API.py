@@ -7,11 +7,7 @@ import numpy as np
 from limedev.CLI import get_main
 
 from ._advanced import Advanced
-from ._aux import IS_CACHE
-from ._aux import npAFloat64
 from ._aux import Solver
-from ._basic import ALL
-from ._basic import RK
 from ._basic import RK23
 from ._basic import RK45
 from ._basic import Solvers

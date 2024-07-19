@@ -1,9 +1,8 @@
 import warnings
-from abc import ABC
-from abc import abstractmethod
 from collections.abc import Callable
 from collections.abc import Iterable
 from typing import Any
+from typing import Protocol
 from typing import TypeAlias
 
 import numba as nb
@@ -31,16 +30,17 @@ ODEAType: TypeAlias = Callable[[np.float64, npAFloat64, Any],
                               tuple[npAFloat64, Any]]
 Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
 # numba types
-# ----------------------------------------------------------------------
-def nbARO(dim = 1, dtype = nb.float64):
-    return nb.types.Array(dtype, dim, 'C', readonly = True)
+nbType: TypeAlias = nb.core.types.abstract.Type
+nbSignature: TypeAlias = nb.core.typing.templates.Signature
 # ----------------------------------------------------------------------
 nbODEsignature = nb.float64[:](nb.float64, nb.float64[:])
 nbODEtype = nbODEsignature.as_type()
-
 # ----------------------------------------------------------------------
-def nbA(dim = 1, dtype = nb.float64):
+def nbA(dim: int = 1, dtype = nb.float64) -> nbType:
     return nb.types.Array(dtype, dim, 'C')
+# ----------------------------------------------------------------------
+def nbARO(dim: int = 1, dtype = nb.float64) -> nbType:
+    return nb.types.Array(dtype, dim, 'C', readonly = True)
 # ----------------------------------------------------------------------
 @nb.njit(nb.float64(nb.float64[:]),
          fastmath = True, cache = IS_CACHE)
@@ -50,6 +50,13 @@ def norm(x: npAFloat64) -> np.float64:
     x *= x
     return (np.sum(x) / size)**0.5
 # ======================================================================
+RK_params_type: TypeAlias = tuple[np.float64,
+                                  np.int8,
+                                  npAFloat64,
+                                  npAFloat64,
+                                  npAFloat64,
+                                  npAFloat64]
+# ----------------------------------------------------------------------
 RK23_error_estimator_exponent = np.float64(-1. / (2. + 1.))
 
 RK23_A = np.array((
@@ -61,7 +68,7 @@ RK23_B = np.array((2/9, 1/3, 4/9), dtype = np.float64)
 RK23_C = np.array((0, 1/2, 3/4), dtype = np.float64)
 RK23_E = np.array((5/72, -1/12, -1/9, 1/8), dtype = np.float64)
 RK23_n_stages = np.int8(len(RK23_C))
-RK23_params  = (RK23_error_estimator_exponent,
+RK23_params: RK_params_type = (RK23_error_estimator_exponent,
                  RK23_n_stages,
                  RK23_A,
                  RK23_B,
@@ -83,7 +90,7 @@ RK45_C = np.array((0, 1/5, 3/10, 4/5, 8/9, 1), dtype = np.float64)
 RK45_E = np.array((-71/57600, 0, 71/16695, -71/1920, 17253/339200, -22/525, 1/40),
                    dtype = np.float64)
 RK45_n_stages = np.int8(len(RK45_C))
-RK45_params  = (RK45_error_estimator_exponent,
+RK45_params: RK_params_type = (RK45_error_estimator_exponent,
                  RK45_n_stages,
                  RK45_A,
                  RK45_B,
@@ -125,29 +132,16 @@ def calc_tolerance(y_abs: npAFloat64,rtol: npAFloat64, atol: npAFloat64
     y_abs += atol
     return y_abs
 # ======================================================================
-class Solver:
-    """Abstract base class for basic RK solvers."""
-    x_bound: nb.float64
-    x: nb.float64
-    y: nb.float64[:]
-    def __init__(self,
-                 fun: ODEType,
-                 x0: np.float64,
-                 y0: npAFloat64,
-                 x_bound: np.float64,
-                 max_step: np.float64,
-                 rtol: npAFloat64,
-                 atol: npAFloat64,
-                 first_step: np.float64,
-                 error_exponent: np.float64,
-                 n_stages: np.int8,
-                 A: npAFloat64,
-                 B: npAFloat64,
-                 C: npAFloat64,
-                 E: npAFloat64) -> None: ...
+
+class Solver(Protocol):
+    """Protocol class for basic RK solvers."""
+    x: np.float64
+    y: npAFloat64
+    x_bound: np.float64
+    _solver_params: tuple[Any]
     # ------------------------------------------------------------------
     def step(self) -> bool:
-        return False
+        ...
     # ------------------------------------------------------------------
     @property
     def state(self) -> Any:

@@ -23,7 +23,7 @@ def compare_to_scipy(solver_type, rtol, atol, problem):
 
     while ni.step(solver):
         pass
-    assert solver.t == problem.x_end
+    assert solver.x == problem.x_end
 
     y_ni = solver.y
     err_ni = np.sum(np.abs(y_ni - problem.y_end))
@@ -40,7 +40,7 @@ def compare_to_scipy(solver_type, rtol, atol, problem):
 class Test_Basic:
     """Testing agains scipy relative to analytical."""
     @pytest.mark.parametrize(('solver', 'problem'),
-                             product(ni.ALL, ref.Problem.problems))
+                             product(ni.Solvers, ref.Problem.problems))
     def test_to_scipy(self, solver, problem):
         """Comparison against scipy."""
         compare_to_scipy(solver, 1e-10, 1e-10, problem)
@@ -51,30 +51,26 @@ class Test_Basic:
         low =  max_step * (1 - 1e-13)
         problem = ref.exponential
         solver = ni.RK45(problem.differential, problem.x0, problem.y0,
-                         t_bound = problem.x_end,
+                         x_bound = problem.x_end,
                          first_step = max_step,
                          max_step = max_step)
-        x_prev = solver.t
+        x_prev = solver.x
         for _ in range(100):
             ni.step(solver)
-            assert low < (solver.t - x_prev) <= max_step
-            x_prev = solver.t
+            assert low < (solver.x - x_prev) <= max_step
+            x_prev = solver.x
 # ======================================================================
 # ----------------------------------------------------------------------
 exponential_diff = ref.exponential.differential
 @nb.njit()
-def f_advanced(t: float, y: npAFloat64, p):
-    return exponential_diff(t, y), p
+def f_advanced(x: float, y: npAFloat64, p):
+    return exponential_diff(x, y), p
 # ----------------------------------------------------------------------
 class Test_Advanced:
 
     parameters_type = nb.types.Tuple((nb.float64, nb.float64[:]))
     auxiliary_type = nb.types.Tuple((nb.float64, nb.float64[:]))
     parameters = (1., np.array((1., 1.), dtype = np.float64))
-    # ------------------------------------------------------------------
-    def test_all_class_creation(self):
-        Solvers = ni.Advanced(self.parameters_type, self.auxiliary_type, ni.Solvers.ALL)
-        assert isinstance(Solvers, dict)
     # ------------------------------------------------------------------
     @pytest.mark.parametrize('solver_type', (ni.RK23, ni.RK45))
     def test_identical_to_base(self, solver_type):
@@ -95,14 +91,14 @@ class Test_Advanced:
         assert solver_advanced.auxiliary[0] == self.parameters[0]
         assert np.all(solver_advanced.auxiliary[1] == self.parameters[1])
 
-        assert solver_base.t == solver_advanced.t
+        assert solver_base.x == solver_advanced.x
         assert np.all(solver_base.y == solver_advanced.y)
         assert solver_advanced.auxiliary == self.parameters
 
         ni.step(solver_base)
         ni.step(solver_advanced)
 
-        assert solver_base.t == solver_advanced.t
+        assert solver_base.x == solver_advanced.x
         assert np.all(solver_base.y == solver_advanced.y)
 
         assert isinstance(solver_advanced.auxiliary, tuple)
@@ -116,9 +112,9 @@ class Test_Advanced:
 
         while ni.step(solver_base):
             assert ni.step(solver_advanced)
-            x_base.append(solver_base.t)
+            x_base.append(solver_base.x)
             y_base.append(solver_base.y)
-            x_advanced.append(solver_advanced.t)
+            x_advanced.append(solver_advanced.x)
             y_advanced.append(solver_advanced.y)
 
         assert x_base == x_advanced
@@ -135,12 +131,12 @@ class Test_Advanced:
         low =  max_step * (1 - 1e-13)
         problem = ref.exponential
         solver = ni.RK45(problem.differential, problem.x0, problem.y0,
-                         t_bound = problem.x_end, max_step = max_step)
-        x_prev = solver.t
+                         x_bound = problem.x_end, max_step = max_step)
+        x_prev = solver.x
         for _ in range(100):
             ni.step(solver)
-            assert low < (solver.t - x_prev) <= max_step
-            x_prev = solver.t
+            assert low < (solver.x - x_prev) <= max_step
+            x_prev = solver.x
 # ======================================================================
 @nb.njit()
 def condition_exponential(solver, parameters: float) -> bool:
@@ -156,13 +152,13 @@ class Test_fast_forward:
         t_range = problem.x_end - problem.x0
         t_step1 = t_range / 10.1
         ni.ff2t(solver, t_step1)
-        assert solver.t == t_step1
-        assert solver.t_bound == problem.x_end
+        assert solver.x == t_step1
+        assert solver.x_bound == problem.x_end
 
-        while ni.ff2t(solver, solver.t + t_step1):
+        while ni.ff2t(solver, solver.x + t_step1):
             ...
-        assert solver.t == solver.t_bound
-        assert solver.t_bound == problem.x_end
+        assert solver.x == solver.x_bound
+        assert solver.x_bound == problem.x_end
     # ------------------------------------------------------------------
     def test_condition(self):
         problem = ref.exponential

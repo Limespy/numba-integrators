@@ -1,5 +1,5 @@
 """Basic RK integrators implemented with numba jitclass."""
-from enum import Enum
+from typing import Any
 
 import numba as nb
 import numpy as np
@@ -19,13 +19,8 @@ from ._aux import npAFloat64
 from ._aux import ODEType
 from ._aux import RK23_params
 from ._aux import RK45_params
+from ._aux import RK_params_type
 from ._aux import SAFETY
-from ._aux import Solver
-# ----------------------------------------------------------------------
-try:
-    from enum import member
-except ImportError:
-    member = lambda m: m # type: ignore
 # ======================================================================
 @nb.njit(fastmath = True, cache = IS_CACHE)
 def calc_h0(y0: npAFloat64,
@@ -205,7 +200,7 @@ def step(fun: ODEType,
     while True: # := not working
         x, h, h_abs = h_prep(h_abs, max_step, eps, x_old, x_bound, direction)
 
-        # RK core loop
+        # _RK core loop
         K[0] = K[-1]
         for s in range(1, n_stages):
             K[s] = fun(x_old + C[s] * h,
@@ -244,7 +239,7 @@ base_spec = (('A', nbARO(2)),
              ('rtol', nbARO(1)))
 # ----------------------------------------------------------------------
 @nb.experimental.jitclass(base_spec + (('fun', nbODEtype),))
-class RK(Solver):
+class _RK:
     """Base class for explicit Runge-Kutta methods."""
 
     def __init__(self,
@@ -326,69 +321,54 @@ def init_RK(fun: ODEType,
             rtol: npAFloat64,
             atol: npAFloat64,
             first_step: np.float64,
-            error_exponent: np.float64,
-            n_stages: np.int8,
-            A: npAFloat64,
-            B: npAFloat64,
-            C: npAFloat64,
-            E: npAFloat64) -> RK:
-    return RK(fun,
-              x0,
-              y0,
-              x_bound,
-              max_step,
-              rtol,
-              atol,
-              first_step,
-              error_exponent,
-              n_stages,
-              A,
-              B,
-              C,
-              E)
+            solver_params) -> _RK:
+    return _RK(fun, x0, y0, x_bound, max_step, rtol, atol, first_step,
+               *solver_params)
 # ----------------------------------------------------------------------
-def RK23(fun: ODEType,
-         x0: float,
-         y0: Arrayable,
-         x_bound: float,
-         max_step: float = np.inf,
-         rtol: Arrayable = 1e-3,
-         atol: Arrayable = 1e-6,
-         first_step: float = 0) -> RK:
-
-    y0, rtol, atol = convert(y0, rtol, atol)
-    return init_RK(fun,
-                       np.float64(x0),
-                       y0,
-                       np.float64(x_bound),
-                       np.float64(max_step),
-                       rtol,
-                       atol,
-                       np.float64(first_step),
-                       *RK23_params)
+class RK_Solver:
+    _solver_params: RK_params_type
+    def __new__(cls, # type: ignore[misc]
+                fun: ODEType,
+                x0: float,
+                y0: Arrayable,
+                x_bound: float,
+                max_step: float = np.inf,
+                rtol: Arrayable = 1e-3,
+                atol: Arrayable = 1e-6,
+                first_step: float = 0.) -> _RK:
+        y0, rtol, atol = convert(y0, rtol, atol)
+        return init_RK(fun,
+                        np.float64(x0),
+                        y0,
+                        np.float64(x_bound),
+                        np.float64(max_step),
+                        rtol,
+                        atol,
+                        np.float64(first_step),
+                        cls._solver_params)
 # ----------------------------------------------------------------------
-def RK45(fun: ODEType,
-         x0: float,
-         y0: Arrayable,
-         x_bound: float,
-         max_step: float = np.inf,
-         rtol: Arrayable = 1e-3,
-         atol: Arrayable = 1e-6,
-         first_step: float = 0.) -> RK:
-
-    y0, rtol, atol = convert(y0, rtol, atol)
-    return init_RK(fun,
-                   np.float64(x0),
-                   y0,
-                   np.float64(x_bound),
-                   np.float64(max_step),
-                   rtol,
-                   atol,
-                   np.float64(first_step),
-                   *RK23_params)
+class RK23(RK_Solver):
+    _solver_params = RK23_params
+# ----------------------------------------------------------------------
+class RK45(RK_Solver):
+    _solver_params = RK45_params
 # ======================================================================
-ALL = (RK23, RK45)
-class Solvers(Enum):
-    RK23 = member(RK23)
-    RK45 = member(RK45)
-    ALL = member(ALL)
+class IterableNamespaceMeta(type):
+    _members: list[Any]
+    # ------------------------------------------------------------------
+    def __subclasses__(self):
+        return iter(self._members)
+    # ------------------------------------------------------------------
+    def __iter__(self):
+        return self.__subclasses__()
+# ----------------------------------------------------------------------
+class IterableNamespace(metaclass = IterableNamespaceMeta):
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        members = [value for key, value in cls.__dict__.items()
+                   if key not in ('__module__', '__doc__', '_members')]
+        cls._members = members
+# ----------------------------------------------------------------------
+class Solvers(IterableNamespace):
+    RK23 = RK23
+    RK45 = RK45
