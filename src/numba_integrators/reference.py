@@ -13,11 +13,16 @@ from numba_integrators._aux import nbODE_signature
 from numba_integrators._aux import npAFloat64
 from numba_integrators._aux import ODE2Type
 from numba_integrators._aux import ODEType
+from numpy import cos
+from numpy import exp
+from numpy import sin
 # ======================================================================
 # Reference initial value problems
 JIT1 = nb.njit(nbODE_signature)
 JIT2 = nb.njit(nbODE2_signature)
 # ----------------------------------------------------------------------
+def arr(*iterable):
+    return np.array(iterable, np.float64).T
 
 @dataclass
 class Problem:
@@ -41,7 +46,7 @@ class Problem:
 # For initial value x = 1, y = (1, 1)
 riccati = Problem('riccati',
                   lambda x, y: 2 * y/x - x ** 2 * y ** 2,
-                  lambda x: np.array((x**2 / (x**5 + 4) * 5,), np.float64).T,
+                  lambda x: arr(x**2. / (x**5. + 4.) * 5.),
                   1., 20.)
 # ----------------------------------------------------------------------
 # Sine
@@ -49,7 +54,7 @@ riccati = Problem('riccati',
 # For initial value x = 0, y = (0, 1)
 sine = Problem('sine',
                lambda x, y: np.array((y[1], -y[0])),
-               lambda x: np.array((np.sin(x), np.cos(x)), np.float64).T,
+               lambda x: arr(np.sin(x), np.cos(x)),
                0., 10.)
 # ----------------------------------------------------------------------
 # Exponential
@@ -57,9 +62,18 @@ sine = Problem('sine',
 # For initial value x = 0, y = (1)
 exponential = Problem('exponential',
                       lambda x, y: y,
-                      lambda x: np.array((np.exp(x),), np.float64).T,
+                      lambda x: arr(exp(x)),
                       0., 10.)
-
+# ----------------------------------------------------------------------
+# Mass-spring
+# https://kyleniemeyer.github.io/ME373-book/content/second-order/numerical-methods.html
+mass_spring = Problem('mass_spring',
+                       lambda x, y: np.array((y[1],
+                                              10 * np.sin(x) - 5. * y[1] - 6. * y[0])),
+    lambda x: (arr(-6. * exp(-3. * x) + 7. * exp(-2. * x) + sin(x) - cos(x),
+                   18. * exp(-3. * x) - 14. * exp(-2. * x) + cos(x) + sin(x))),
+               0., 3.)
+# ======================================================================
 @dataclass
 class Problem2:
     name: str
@@ -84,8 +98,8 @@ class Problem2:
 # For initial value x = 0, y = (0, 1)
 sine2 = Problem2('sine',
                lambda x, y, dy: -y,
-               lambda x: (np.array((np.sin(x),), np.float64).T,
-                          np.array((np.cos(x),), np.float64).T),
+               lambda x: (arr(np.sin(x),),
+                          arr(np.cos(x),)),
                0., 10.)
 # ----------------------------------------------------------------------
 # Exponential
@@ -93,9 +107,17 @@ sine2 = Problem2('sine',
 # For initial value x = 0, y = (1)
 exponential2 = Problem2('exponential',
                       lambda x, y, dy: y,
-                      lambda x: (np.array((np.exp(x),), np.float64).T,
-                                 np.array((np.exp(x),), np.float64).T),
+                      lambda x: (arr(exp(x),),
+                                 arr(exp(x),)),
                       0., 10.)
+# ----------------------------------------------------------------------
+# Mass-spring
+# https://kyleniemeyer.github.io/ME373-book/content/second-order/numerical-methods.html
+mass_spring2 = Problem2('mass_spring',
+                       lambda x, y, dy: 10 * np.sin(x) - 5. * dy - 6. * y,
+    lambda x: (arr(-6. * exp(-3. * x) + 7. * exp(-2. * x) + sin(x) - cos(x)),
+               arr(18. * exp(-3. * x) - 14. * exp(-2. * x) + cos(x) + sin(x))),
+               0., 3.)
 # ======================================================================
 scipy_integrators = {'RK23': scipy.integrate.RK23,
                      'RK45': scipy.integrate.RK45}
