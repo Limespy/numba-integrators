@@ -1,16 +1,16 @@
 import numba as nb
 import numpy as np
 import pytest
-from numba_integrators import _advanced
 from numba_integrators import _API
 from numba_integrators import _aux
+from numba_integrators.first import advanced
 # ======================================================================
 # _advanced
 def test_nbAdvanced_ODE_signature():
-    _advanced.nbAdvanced_ODE_signature(nb.float64, nb.float64)
+    advanced.nbAdvanced_ODE_signature(nb.float64, nb.float64)
 # ----------------------------------------------------------------------
 def test_nbAdvanced_initial_step_signature():
-    _advanced.nbAdvanced_initial_step_signature(nb.float64,
+    advanced.nbAdvanced_initial_step_signature(nb.float64,
                                            nb.types.Tuple((nb.float64[:],
                                                            nb.float64))(
                                                             nb.float64,

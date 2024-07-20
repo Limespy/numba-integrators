@@ -6,21 +6,21 @@ with these
 import numba as nb
 import numpy as np
 
-from ._aux import Arrayable
-from ._aux import calc_error_norm
-from ._aux import convert
-from ._aux import IS_CACHE
-from ._aux import MAX_FACTOR
-from ._aux import MIN_FACTOR
-from ._aux import npAFloat64
-from ._aux import ODEType
-from ._aux import RK23_params
-from ._aux import RK45_params
-from ._aux import SAFETY
-from ._aux import step_prep
-from ._first_order import h_prep
-from ._first_order import select_initial_step
+from .._aux import Arrayable
+from .._aux import calc_error_norm2
+from .._aux import convert
+from .._aux import IS_CACHE
+from .._aux import MAX_FACTOR
+from .._aux import MIN_FACTOR
+from .._aux import npAFloat64
+from .._aux import ODEType
+from .._aux import RK23_params
+from .._aux import RK45_params
+from .._aux import SAFETY
+from .._aux import step_prep
 from ._structref_generated import RK
+from .basic import h_prep
+from .basic import select_initial_step
 # ======================================================================
 @nb.njit(cache = IS_CACHE)
 def step(state: RK) -> bool:
@@ -55,12 +55,12 @@ def step(state: RK) -> bool:
 
         K[-1] = fun(x, y)
 
-        error_norm = calc_error_norm(K, E, h, y, y_old, rtol, atol)
+        error_norm2 = calc_error_norm2(K, E, h, y, y_old, rtol, atol)
 
-        if error_norm < 1:
-            h_abs *= (MAX_FACTOR if error_norm == 0 else
-                    min(MAX_FACTOR, SAFETY * error_norm ** state.error_exponent))
-            state.K = K # type: ignore[misc]
+        if error_norm2 < 1:
+            h_abs *= (MAX_FACTOR if error_norm2 == 0 else
+                    min(MAX_FACTOR, SAFETY * error_norm2 ** state.error_exponent))
+            state.K = K
             state.h_abs = h_abs # type: ignore[misc]
             state.step_size = h # type: ignore[misc]
             state.x = x # type: ignore[misc]
@@ -68,9 +68,9 @@ def step(state: RK) -> bool:
             return True # Step is accepted
         else:
             h_abs *= max(MIN_FACTOR,
-                                SAFETY * error_norm ** state.error_exponent)
+                                SAFETY * error_norm2 ** state.error_exponent)
             if h_abs < min_step:
-                state.K = K # type: ignore[misc]
+                state.K = K
                 state.h_abs = h_abs # type: ignore[misc]
                 state.step_size = h # type: ignore[misc]
                 state.x = x # type: ignore[misc]

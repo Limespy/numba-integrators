@@ -6,7 +6,6 @@ from typing import Any
 from typing import ClassVar
 
 import numba as nb
-import numba_integrators as ni
 import numpy as np
 import scipy
 from numba_integrators._aux import nbODE2_signature
@@ -97,11 +96,9 @@ exponential2 = Problem2('exponential',
                       lambda x: (np.array((np.exp(x),), np.float64).T,
                                  np.array((np.exp(x),), np.float64).T),
                       0., 10.)
-# ----------------------------------------------------------------------
-
 # ======================================================================
-scipy_integrators = {ni.RK23: scipy.integrate.RK23,
-                     ni.RK45: scipy.integrate.RK45}
+scipy_integrators = {'RK23': scipy.integrate.RK23,
+                     'RK45': scipy.integrate.RK45}
 # ----------------------------------------------------------------------
 def scipy_solve(solver_type,
                 function: ODEType,
@@ -111,7 +108,7 @@ def scipy_solve(solver_type,
                 rtol: float | npAFloat64,
                 atol: float | npAFloat64) -> npAFloat64:
 
-    solver = scipy_integrators[solver_type](function, x0, y0, x_end,
+    solver = scipy_integrators[solver_type.__name__](function, x0, y0, x_end,
                                             atol = atol, rtol = rtol)
     while solver.status == 'running':
         solver.step()

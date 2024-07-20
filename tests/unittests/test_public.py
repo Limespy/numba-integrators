@@ -8,8 +8,10 @@ import numba as nb
 import numba_integrators as ni
 import numpy as np
 import pytest
+import scipy
 from numba_integrators import reference as ref
 from numba_integrators._aux import npAFloat64
+from numba_integrators._aux import ODEType
 # ======================================================================
 pytestmark = pytest.mark.filterwarnings('ignore::numba.core.errors.NumbaExperimentalFeatureWarning')
 # ======================================================================

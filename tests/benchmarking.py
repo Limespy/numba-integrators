@@ -5,15 +5,17 @@ import numpy as np
 from limedev.test import BenchmarkResultsType
 from limedev.test import eng_round
 from limedev.test import sigfig_round
+from limedev.test import YAMLSafe
 # ======================================================================
 def timing():
     print('TIME')
-    times = {}
+    times: dict[str, YAMLSafe] = {}
+    times['base'] = {}
     # setup
     t0 = perf_counter()
     import numba_integrators as ni
     rounded, prefix = eng_round(perf_counter() - t0)
-    times[f'import [{prefix}s]'] = rounded
+    times['base'][f'import [{prefix}s]'] = rounded
 
     from numba_integrators import reference as ref
 
@@ -44,19 +46,28 @@ def timing():
         n += 1
 
     runtime = perf_counter() - t0
+    nfev_scipy =  solver.nfev
     t_step_scipy = runtime / n
-
+    times['scipy'] = nfev_scipy
     print(f'Scipy runtime: {runtime:.3f} s')
     # ------------------------------------------------------------------
     # ni
     times['jitclass'] = {}
+
+    t0 = perf_counter()
+
+    from numba_integrators.first.basic import RK45
+
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['jitclass'][f'import [{prefix}s]'] = rounded
+
     from numba_integrators._aux import nbA
-    @nb.njit(nbA(1)(nb.float64, nbA(1)))
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
     def g(t, y):
         return 1.1 * y
 
     t0 = perf_counter()
-    solver = ni.RK45(g, problem.x0, problem.y0,
+    solver = RK45(g, problem.x0, problem.y0,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
@@ -64,7 +75,7 @@ def timing():
     times['jitclass'][f'first initialisation [{prefix}s]'] = rounded
     t0 = perf_counter()
 
-    solver = ni.RK45(*args,
+    solver = RK45(*args,
                      x_bound = x_end,
                      first_step = 1e-4,
                      max_step = 1e-4)
@@ -85,11 +96,21 @@ def timing():
     print(f'Numba Integrators runtime: {runtime:.3f} s')
     t_step_ni = runtime / n
     times['jitclass']['step'] = round(t_step_ni / t_step_scipy, 4)
+    times['jitclass']['nfev'] = solver.nfev
     # ------------------------------------------------------------------
     # ni structref
-    from numba_integrators import structref as sr
 
     times['structref'] = {}
+
+    t0 = perf_counter()
+
+    from numba_integrators.first import structref as sr
+
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['structref'][f'import [{prefix}s]'] = rounded
+
+
+
 
     t0 = perf_counter()
     solver = sr.RK45(g, problem.x0, problem.y0,
@@ -121,31 +142,44 @@ def timing():
     t_step_ni_nt = runtime / n
 
     times['structref']['step'] = round(t_step_ni_nt / t_step_scipy, 4)
+    # times['structref']['nfev'] = solver.nfev
     # ------------------------------------------------------------------
     # # ni second order
-    state = sr.RK45(*args,
+
+    times['1st order'] = {}
+    solver = RK45(*args,
                      x_bound = problem.x_end*500.,
                      rtol = 1e-10,
                      atol = 1e-10)
     n = 0
     t0 = perf_counter()
-    while sr.step(state):
-        ...
+    while ni.step(solver):
+        n += 1
 
     runtime = perf_counter() - t0
-    print(f'Numba Integrators first order runtime: {runtime:.3f} s')
+    times['1st order']['step'] = round(runtime / n / t_step_scipy, 4)
 
+    print(f'Numba Integrators first order runtime: {runtime:.3f} s')
+    times['1st order']['nfev'] = solver.nfev
 
     times['2nd order'] = {}
 
-    @nb.njit(nb.float64[:](nb.float64, nbA(1), nbA(1)))
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:], nb.float64[:]))
     def g2(t, y, dy):
         return 1.1 * y
 
     problem = ref.sine2
 
     t0 = perf_counter()
-    solver = ni.RK45_2(g2,
+
+    from numba_integrators.second.basic import RK45_2
+
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['2nd order'][f'import [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+
+    solver = RK45_2(g2,
                         problem.x0,
                         problem.y0,
                         problem.dy0,
@@ -156,7 +190,7 @@ def timing():
     times['2nd order'][f'first initialisation [{prefix}s]'] = rounded
 
     t0 = perf_counter()
-    solver = ni.RK45_2(problem.differential,
+    solver = RK45_2(problem.differential,
                         problem.x0,
                         problem.y0,
                         problem.dy0,
@@ -167,28 +201,28 @@ def timing():
     times['2nd order'][f'second initialisation [{prefix}s]'] = rounded
 
     t0 = perf_counter()
-    solver.step()
+    ni.step(solver)
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'first step [{prefix}s]'] = rounded
 
 
     n = 0
     t0 = perf_counter()
-    while solver.step():
+    while ni.step(solver):
         n += 1
     runtime = perf_counter() - t0
 
     print(f'Numba Integrators second order runtime: {runtime:.3f} s')
 
-    t_step_ni_nt = runtime / n
-
-    times['2nd order']['step'] = round(t_step_ni_nt / t_step_scipy, 4)
+    times['2nd order']['nfev'] = solver.nfev
+    times['2nd order']['step'] = round(runtime / n / t_step_scipy, 4)
 
     return times
 # ======================================================================
 def accuracy() -> dict[str, dict[str, float]]:
     print('ACCURACY')
     import numba_integrators as ni
+    from numba_integrators.first.basic import Solvers
     from numba_integrators import reference as ref
 
     kwargs = dict(atol = 1e-10,
@@ -196,7 +230,7 @@ def accuracy() -> dict[str, dict[str, float]]:
 
     results = {}
 
-    for Solver in ni.Solvers:
+    for Solver in Solvers:
         solver_results = {}
         for problem in ref.Problem.problems:
             solver = Solver(problem.differential,

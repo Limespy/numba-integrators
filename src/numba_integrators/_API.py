@@ -4,16 +4,8 @@ from typing import Callable
 
 import numba as nb
 import numpy as np
-from limedev.CLI import get_main
 
-from ._advanced import Advanced
 from ._aux import Solver
-from ._basic import RK23
-from ._basic import RK23_2
-from ._basic import RK45
-from ._basic import RK45_2
-from ._basic import Solvers
-from ._basic import Solvers2
 # ======================================================================
 @nb.njit
 def step(solver: Solver) -> bool:
@@ -22,7 +14,7 @@ def step(solver: Solver) -> bool:
 # ======================================================================
 # FAST FORWARD
 @nb.njit
-def ff2t(solver: Solver, x_end: np.float64) -> bool:
+def ff2x(solver: Solver, x_end: np.float64) -> bool:
     """Fast forwards to given time or x_bound."""
     x_bound = solver.x_bound
     is_nox_last = x_bound > x_end
@@ -33,7 +25,7 @@ def ff2t(solver: Solver, x_end: np.float64) -> bool:
 
     solver.x_bound = x_bound
 
-    return is_nox_last
+    return is_nox_last # type: ignore[return-value]
 # ----------------------------------------------------------------------
 @nb.njit
 def ff2cond(solver: Solver,
@@ -44,5 +36,3 @@ def ff2cond(solver: Solver,
         if condition(solver, parameters):
             return True
     return False
-# ======================================================================
-main = get_main(__name__)

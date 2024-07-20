@@ -46,28 +46,38 @@
       exponential: -2.44e-15
 0.4.1:
   time:
-    import [ms]: 274.0
+    base:
+      import [ms]: 543.0
+    scipy: 600007
     jitclass:
-      first initialisation [s]: 2.13
-      second initialisation [s]: 1.06
-      first step [s]: 1.01
-      step: 0.0543
+      import [ms]: 853.0
+      first initialisation [s]: 2.02
+      second initialisation [ms]: 934.0
+      first step [s]: 3.45
+      step: 0.0547
+      nfev: 600007
     structref:
-      first initialisation sr [s]: 1.86
-      second initialisation sr [ms]: 656.0
-      first step [s]: 1.25
-      step: 0.0511
+      import [ms]: 3.12
+      first initialisation sr [ms]: 802.0
+      second initialisation sr [ms]: 582.0
+      first step [s]: 1.24
+      step: 0.0548
+    1st order:
+      step: 0.055
+      nfev: 699206
     2nd order:
-      first initialisation [s]: 2.44
-      second initialisation [s]: 1.47
-      first step [s]: 2.03
-      step: 0.0806
+      import [s]: 1.09
+      first initialisation [s]: 2.54
+      second initialisation [s]: 1.2
+      first step [s]: 3.47
+      nfev: 619424
+      step: 0.0846
   accuracy:
     RK23:
       riccati: -0.00561
-      sine: 5.33e-15
-      exponential: 1.22e-14
+      sine: 1.09e-14
+      exponential: -2.44e-15
     RK45:
       riccati: -0.00168
-      sine: -9.99e-16
-      exponential: 7.99e-15
+      sine: -3.22e-15
+      exponential: -9.21e-15
