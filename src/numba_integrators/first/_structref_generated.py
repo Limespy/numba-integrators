@@ -30,12 +30,11 @@ class RK(structref.StructRefProxy):
                 h_abs,
                 direction,
                 step_size,
+                nfev,
                 error_exponent,
                 n_stages,
                 A,
-                B,
                 C,
-                E,
                 K):
         return structref.StructRefProxy.__new__(cls,
                                                 fun,
@@ -48,12 +47,11 @@ class RK(structref.StructRefProxy):
                                                 h_abs,
                                                 direction,
                                                 step_size,
+                                                nfev,
                                                 error_exponent,
                                                 n_stages,
                                                 A,
-                                                B,
                                                 C,
-                                                E,
                                                 K)
 
     @property
@@ -101,6 +99,10 @@ class RK(structref.StructRefProxy):
         return RK_get_step_size(self)
 
     @property
+    def nfev(self):
+        return RK_get_nfev(self)
+
+    @property
     def error_exponent(self):
         return RK_get_error_exponent(self)
 
@@ -113,16 +115,8 @@ class RK(structref.StructRefProxy):
         return RK_get_A(self)
 
     @property
-    def B(self):
-        return RK_get_B(self)
-
-    @property
     def C(self):
         return RK_get_C(self)
-
-    @property
-    def E(self):
-        return RK_get_E(self)
 
     @property
     def K(self):
@@ -177,6 +171,10 @@ def RK_get_step_size(self):
     return self.step_size
 
 @nb.njit
+def RK_get_nfev(self):
+    return self.nfev
+
+@nb.njit
 def RK_get_error_exponent(self):
     return self.error_exponent
 
@@ -189,16 +187,8 @@ def RK_get_A(self):
     return self.A
 
 @nb.njit
-def RK_get_B(self):
-    return self.B
-
-@nb.njit
 def RK_get_C(self):
     return self.C
-
-@nb.njit
-def RK_get_E(self):
-    return self.E
 
 @nb.njit
 def RK_get_K(self):
@@ -218,10 +208,9 @@ structref.define_proxy(RK, RKType, ['fun',
                                     'h_abs',
                                     'direction',
                                     'step_size',
+                                    'nfev',
                                     'error_exponent',
                                     'n_stages',
                                     'A',
-                                    'B',
                                     'C',
-                                    'E',
                                     'K'])

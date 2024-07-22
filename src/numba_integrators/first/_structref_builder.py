@@ -14,12 +14,11 @@ names = (('fun', False),
          ('h_abs', False),
          ('direction', False),
          ('step_size', False),
+         ('nfev', False),
          ('error_exponent', False),
          ('n_stages', False),
          ('A', False),
-         ('B', False),
          ('C', False),
-         ('E', False),
          ('K', True))
 
 clsname = 'RK'

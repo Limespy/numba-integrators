@@ -8,10 +8,9 @@ import numba as nb
 import numba_integrators as ni
 import numpy as np
 import pytest
-import scipy
-from numba_integrators import reference as ref
 from numba_integrators._aux import npAFloat64
-from numba_integrators._aux import ODEType
+from numba_integrators.first import basic as fb
+from numba_integrators.first import reference as ref
 # ======================================================================
 pytestmark = pytest.mark.filterwarnings('ignore::numba.core.errors.NumbaExperimentalFeatureWarning')
 # ======================================================================
@@ -42,7 +41,7 @@ def compare_to_scipy(solver_type, rtol, atol, problem):
 class Test_Basic:
     """Testing agains scipy relative to analytical."""
     @pytest.mark.parametrize(('solver', 'problem'),
-                             product(ni.Solvers, ref.Problem.problems))
+                             product(fb.Solvers, ref.Problem.problems))
     def test_to_scipy(self, solver, problem):
         """Comparison against scipy."""
         compare_to_scipy(solver, 1e-10, 1e-10, problem)
@@ -73,7 +72,7 @@ class Test_Advanced:
     auxiliary_type = nb.types.Tuple((nb.float64, nb.float64[:]))
     parameters = (1., np.array((1., 1.), dtype = np.float64))
     # ------------------------------------------------------------------
-    @pytest.mark.parametrize('solver_type', (ni.RK23, ni.RK45))
+    @pytest.mark.parametrize('solver_type', fb.Solvers)
     def test_identical_to_base(self, solver_type):
         problem = ref.exponential
         solver_base = solver_type(problem.differential,

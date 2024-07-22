@@ -7,7 +7,7 @@ import numpy as np
 
 from ._aux import Solver
 # ======================================================================
-@nb.njit
+# @nb.njit
 def step(solver: Solver) -> bool:
     """Taking step with a solver in functional style."""
     return solver.step()

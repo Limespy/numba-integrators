@@ -17,7 +17,7 @@ def timing():
     rounded, prefix = eng_round(perf_counter() - t0)
     times['base'][f'import [{prefix}s]'] = rounded
 
-    from numba_integrators import reference as ref
+    from numba_integrators.first import reference as ref
 
     problem = ref.sine
     x_end = problem.x_end
@@ -61,7 +61,6 @@ def timing():
     rounded, prefix = eng_round(perf_counter() - t0)
     times['jitclass'][f'import [{prefix}s]'] = rounded
 
-    from numba_integrators._aux import nbA
     @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
     def g(t, y):
         return 1.1 * y
@@ -109,9 +108,6 @@ def timing():
     rounded, prefix = eng_round(perf_counter() - t0)
     times['structref'][f'import [{prefix}s]'] = rounded
 
-
-
-
     t0 = perf_counter()
     solver = sr.RK45(g, problem.x0, problem.y0,
                      x_bound = x_end,
@@ -142,7 +138,7 @@ def timing():
     t_step_ni_nt = runtime / n
 
     times['structref']['step'] = round(t_step_ni_nt / t_step_scipy, 4)
-    # times['structref']['nfev'] = solver.nfev
+    times['structref']['nfev'] = solver.nfev
     # ------------------------------------------------------------------
     # # ni second order
 
@@ -168,33 +164,33 @@ def timing():
     def g2(t, y, dy):
         return 1.1 * y
 
-    problem = ref.sine2
-
     t0 = perf_counter()
 
-    from numba_integrators.second.basic import RK45_2
+    from numba_integrators.second.basic.RK import RK45_2
 
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'import [{prefix}s]'] = rounded
 
     t0 = perf_counter()
 
+    from numba_integrators.second.basic.reference import sine2 as problem2
+
     solver = RK45_2(g2,
-                        problem.x0,
-                        problem.y0,
-                        problem.dy0,
-                        problem.x_end,
+                        problem2.x0,
+                        problem2.y0,
+                        problem2.dy0,
+                        problem2.x_end,
                         rtol = 1e-10,
                         atol = 1e-10)
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'first initialisation [{prefix}s]'] = rounded
 
     t0 = perf_counter()
-    solver = RK45_2(problem.differential,
-                        problem.x0,
-                        problem.y0,
-                        problem.dy0,
-                        problem.x_end*500.,
+    solver = RK45_2(problem2.differential,
+                        problem2.x0,
+                        problem2.y0,
+                        problem2.dy0,
+                        problem2.x_end*500.,
                         rtol = 1e-10,
                         atol = 1e-10)
     rounded, prefix = eng_round(perf_counter() - t0)
@@ -223,7 +219,7 @@ def accuracy() -> dict[str, dict[str, float]]:
     print('ACCURACY')
     import numba_integrators as ni
     from numba_integrators.first.basic import Solvers
-    from numba_integrators import reference as ref
+    from numba_integrators.first import reference as ref
 
     kwargs = dict(atol = 1e-10,
                   rtol = 1e-10)

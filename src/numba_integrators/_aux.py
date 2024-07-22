@@ -10,7 +10,7 @@ import numba as nb
 import numpy as np
 from numpy.typing import NDArray
 # ======================================================================
-warnings.filterwarnings(action='ignore',
+warnings.filterwarnings(action = 'ignore',
                         category = nb.errors.NumbaExperimentalFeatureWarning)
 
 # Multiply steps computed from asymptotic behaviour of errors by this.
@@ -19,20 +19,17 @@ SAFETY = 0.9
 MIN_FACTOR = 0.2  # Minimum allowed decrease in a step size.
 MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 
-IS_CACHE = False
-
+IS_CACHE = True
+IS_NUMBA = True
 # Types
 npA: TypeAlias = NDArray[Any]
 npAFloat64: TypeAlias = NDArray[np.float64]
 npAInt64: TypeAlias = NDArray[np.int64]
 
-ODEType: TypeAlias  = Callable[[np.float64, npAFloat64], npAFloat64]
-ODEAType: TypeAlias = Callable[[np.float64, npAFloat64, Any],
-                              tuple[npAFloat64, Any]]
-ODE2Type: TypeAlias  = Callable[[np.float64, npAFloat64, npAFloat64],
-                                npAFloat64]
+_ODEA_return: TypeAlias = tuple[npAFloat64, Any]
+
 ODEA2Type: TypeAlias = Callable[[np.float64, npAFloat64, npAFloat64, Any],
-                              tuple[npAFloat64, Any]]
+                              _ODEA_return]
 Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
 
 # numba types
@@ -45,17 +42,20 @@ def nbA(dim: int = 1, dtype = nb.float64) -> nbType:
 # ----------------------------------------------------------------------
 def nbARO(dim: int = 1, dtype = nb.float64) -> nbType:
     return nb.types.Array(dtype, dim, 'C', readonly = True)
-# ----------------------------------------------------------------------
-nbODE_signature = nb.float64[:](nb.float64, nb.float64[:])
-nbODE_type = nbODE_signature.as_type()
-nbODE2_signature = nb.float64[:](nb.float64, nb.float64[:], nb.float64[:])
-nbODE2_type = nbODE2_signature.as_type()
 # ======================================================================
 # Numba decorators
-nbDecC = nb.njit(cache = IS_CACHE)
-nbDecFC = nb.njit(fastmath = True, cache = IS_CACHE)
+
+if IS_NUMBA:
+    nbDec = nb.njit
+else:
+    def nbDec(f = None, **__):
+        if callable(f):
+            return f
+        return nbDec
+nbDecC = nbDec(cache = IS_CACHE)
+nbDecFC = nbDec(fastmath = True, cache = IS_CACHE)
 # ======================================================================
-@nb.njit(nb.float64(nbA(1)),
+@nbDec(nb.float64(nbA(1)),
          fastmath = True, cache = IS_CACHE)
 def norm(x: npAFloat64) -> np.float64:
     """Compute RMS norm."""
@@ -63,45 +63,51 @@ def norm(x: npAFloat64) -> np.float64:
     x *= x
     return (np.sum(x) / size)**0.5
 # ======================================================================
-RK_params_type: TypeAlias = tuple[np.float64,
-                                  np.int8,
-                                  npAFloat64,
-                                  npAFloat64,
-                                  npAFloat64,
-                                  npAFloat64]
+# RK_params_type: TypeAlias = tuple[np.float64,
+#                                   np.int8,
+#                                   npAFloat64,
+#                                   npAFloat64,
+#                                   npAFloat64,
+#                                   npAFloat64]
+# ----------------------------------------------------------------------
 class RK_Params(NamedTuple):
     error_exponent: np.float64
     n_stages: np.uint64
     A: npAFloat64
-    B: npAFloat64
     C: npAFloat64
-    E: npAFloat64
 # ----------------------------------------------------------------------
-RK23_params = RK_Params(np.float64(-0.5 / (2. + 1.)),
-                 np.uint64(3),
-                 np.array(((0.,    0.,     0.),
-                           (1/2,   0.,     0.),
-                           (0.,    3/4,    0.)
-                             ), dtype = np.float64),
-                 np.array((2/9, 1/3, 4/9), dtype = np.float64),
-                 np.array((0, 1/2, 3/4), dtype = np.float64),
-                 np.array((5/72, -1/12, -1/9, 1/8), dtype = np.float64))
+def make_rk_params(order: int | float,
+                   A: Iterable[Iterable[float]],
+                   C: Iterable[float]) -> RK_Params:
+
+    if not C:
+        C = [sum(row) for row in A]
+    _A = np.array(A, np.float64)
+    _C =  np.array(C, np.float64)
+    _A[:-2] /= _C.reshape(-1, 1)[1:]
+    A_sums = np.sum(_A, axis = 1)
+    if not (np.allclose(A_sums[:-1], 1., 5e-16, 5e-16)
+            and abs(A_sums[-1]) < 1e-16):
+        raise ValueError(A_sums)
+    return RK_Params(np.float64(-0.5 / (order + 1.)),
+                     np.uint64(len(C) + 1),
+                     _A, _C)
 # ----------------------------------------------------------------------
-RK45_params = RK_Params(np.float64(-0.5 / (4. + 1.)),
-    np.uint64(6),
-    np.array((
-        (0.,        0.,             0.,         0.,         0.),
-        (1/5,       0.,             0.,         0.,         0.),
-        (3/40,      9/40,           0.,         0.,         0.),
-        (44/45,     -56/15,         32/9,       0.,         0.),
-        (19372/6561, -25360/2187,   64448/6561, -212/729,   0.),
-        (9017/3168, -355/33,        46732/5247, 49/176,     -5103/18656)
-        ), dtype = np.float64),
-    np.array((35/384, 0, 500/1113, 125/192, -2187/6784, 11/84),
-             dtype = np.float64),
-    np.array((0, 1/5, 3/10, 4/5, 8/9, 1), dtype = np.float64),
-    np.array((-71/57600, 0, 71/16695, -71/1920, 17253/339200, -22/525, 1/40),
-             dtype = np.float64))
+RK23_params = make_rk_params(2,
+                 ((0.,  3/4,    0.,  0.),
+                  (2/9, 1/3,    4/9,  0.),
+                  (5/72, -1/12, -1/9, 1/8)),
+                 (1/2, 3/4))
+# ----------------------------------------------------------------------
+RK45_params = make_rk_params(4.,
+((3/40,       9/40,        0.,         0.,       0.,           0.,      0.),
+ (44/45,      -56/15,      32/9,       0.,       0.,           0.,      0.),
+ (19372/6561, -25360/2187, 64448/6561, -212/729, 0.,           0.,      0.),
+ (9017/3168,  -355/33,     46732/5247, 49/176,   -5103/18656,  0.,      0.),
+ (35/384,     0.,          500/1113,   125/192,  -2187/6784,   11/84,   0.),
+ (-71/57600,  0,           71/16695,   -71/1920, 17253/339200, -22/525, 1/40)),
+(1/5, 3/10, 4/5, 8/9, 1.))
+
 # ======================================================================
 def _into_1d_typearray(item: Arrayable,
                        length: int = 1,
@@ -130,8 +136,8 @@ def convert(a: Arrayable, *args: Arrayable
 def calc_eps(value: float, direction: float) -> float:
     return np.abs(np.nextafter(value, direction * np.inf) - value)
 # ======================================================================
-@nb.njit(nbA(1)(nbA(1), nbARO(1), nbARO(1)), cache = IS_CACHE)
-def calc_tolerance(y_abs: npAFloat64,rtol: npAFloat64, atol: npAFloat64
+@nbDec(nbA(1)(nbA(1), nbARO(1), nbARO(1)), cache = IS_CACHE)
+def calc_tolerance(y_abs: npAFloat64, rtol: npAFloat64, atol: npAFloat64
                    ) -> npAFloat64:
     y_abs *= rtol
     y_abs += atol
@@ -175,57 +181,33 @@ class IterableNamespace(metaclass = IterableNamespaceMeta):
         cls._members = members
 # ======================================================================
 @nbDecC
-def calc_error_norm2(K: npAFloat64,
-                    E: npAFloat64,
-                    h: np.float64,
-                    y: np.float64,
-                    y_old: npAFloat64,
+def calc_error_norm2(step_err_estimator: npAFloat64,
+                    y_abs: np.float64,
+                    y_old_abs: npAFloat64,
                     rtol: npAFloat64,
                     atol: npAFloat64) -> np.float64:
-    step_err_estimator = np.dot(K.T, E)
-    step_err_estimator *= h
-    y_max_abs = np.abs(y_old)
-    np.maximum(y_max_abs, np.abs(y), y_max_abs)
-    step_err_estimator /= calc_tolerance(y_max_abs, rtol, atol)
-
-    size = step_err_estimator.size
-    step_err_estimator *= step_err_estimator
-    return np.sum(step_err_estimator) / size
+    np.maximum(y_old_abs, y_abs, y_abs)
+    step_err_estimator /= calc_tolerance(y_abs, rtol, atol)
+    return np.dot(step_err_estimator, step_err_estimator)
 # ======================================================================
 @nbDecC
-def step_prep(h_abs: np.float64, x: np.float64, direction: np.float64):
+def step_prep(x_old: np.float64,
+              h_abs: np.float64,
+              direction: np.float64,
+              h_end: np.float64,
+              max_step: np.float64
+              ) -> tuple[np.float64, np.float64]:
     """Prep for explicit RK solver step."""
-    x_old = x
     eps = calc_eps(x_old, direction)
-    min_step = 8 * eps
 
-    if h_abs < min_step:
-        h_abs = min_step
-    return h_abs, x_old, eps, min_step
-# ======================================================================
-@nbDecC
-def h_prep(h_abs: np.float64,
-           max_step: np.float64,
-            eps: np.float64,
-            x_old: np.float64,
-            x_bound: np.float64,
-            direction: np.float64) -> tuple[np.float64, np.float64, np.float64]:
-    if h_abs > max_step:
-        h_abs = max_step - eps
-    h = h_abs #* direction
-    # Updating
-    x = x_old + h
+    h_limit_abs = min(abs(h_end), max_step - eps)
 
-    if direction * (x - x_bound) >= 0: # End reached
-        x = x_bound
-        h = x - x_old
-        h_abs = np.abs(h) # There is something weird going on here
-    return x, h, h_abs
+    if h_abs > h_limit_abs:
+        h_abs = h_limit_abs
+    return 8 * eps, h_abs
 # ======================================================================
 base_spec = {'A': nbARO(2),
-             'B': nbARO(1),
              'C': nbARO(1),
-             'E': nbARO(1),
              'K': nbA(2),
              'n_stages': nb.uint64,
              'x': nb.float64,
@@ -238,16 +220,19 @@ base_spec = {'A': nbARO(2),
              'h_abs': nb.float64,
              'atol': nbARO(1),
              'rtol': nbARO(1),
-             'fun': nbODE_type,
              '_nfev': nb.uint64}
 # ======================================================================
-def jitclass_from_dict(update: dict[str, nbType] = {},
-                       remove: Iterable[str] = ()
-                       ) -> Callable[[type], Any]:
-    spec = base_spec.copy()
-    if remove:
-        for key in remove:
-            spec.pop(key, None)
-    if update:
-        spec |= update
-    return nb.experimental.jitclass(spec)
+if IS_NUMBA:
+    def jitclass_from_dict(update: dict[str, nbType] = {},
+                        remove: Iterable[str] = ()
+                        ) -> Callable[[type], Any]:
+        spec = base_spec.copy()
+        if remove:
+            for key in remove:
+                spec.pop(key, None)
+        if update:
+            spec |= update
+        return nb.experimental.jitclass(spec)
+else:
+    def jitclass_from_dict(*args, **kwargs):
+        return lambda x: x

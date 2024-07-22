@@ -3,28 +3,27 @@
 Mainly to test how much faster the solver object initilaisation would be
 with these
 """
-import numba as nb
 import numpy as np
 
-from .._aux import Arrayable
 from .._aux import calc_error_norm2
-from .._aux import convert
-from .._aux import IS_CACHE
+from .._aux import IterableNamespace
 from .._aux import MAX_FACTOR
 from .._aux import MIN_FACTOR
+from .._aux import nbDecC
 from .._aux import npAFloat64
-from .._aux import ODEType
 from .._aux import RK23_params
 from .._aux import RK45_params
 from .._aux import SAFETY
 from .._aux import step_prep
+from ._first_aux import ODE1Type
+from ._first_aux import Solver1
 from ._structref_generated import RK
-from .basic import h_prep
 from .basic import select_initial_step
 # ======================================================================
-@nb.njit(cache = IS_CACHE)
+@nbDecC
 def step(state: RK) -> bool:
-    if state.direction * (state.x - state.x_bound) >= 0: # x_bound has been reached
+    h_end = state.x_bound - state.x
+    if state.direction * h_end <= 0: # x_bound has been reached
         return False
     x_old = state.x
     x = state.x
@@ -32,34 +31,49 @@ def step(state: RK) -> bool:
     y = state.y
     h_abs = state.h_abs
     direction = state.direction
-    h_abs, x_old, eps, min_step = step_prep(state.h_abs, x, direction)
+
+    min_step, h_abs = step_prep(x_old, h_abs, direction, h_end, state.max_step)
+
     K = state.K
     A = state.A
-    B = state.B
     C = state.C
-    E = state.E
     rtol = state.rtol
     atol = state.atol
     fun = state.fun
+    K[0] = K[-1]
+    y_old_abs = np.abs(y_old)
+    _len = 1. / len(y_old)
     while True: # := not working
 
-        x, h, h_abs = h_prep(h_abs, state.max_step, eps, x_old, state.x_bound, direction)
+        h = direction * h_abs
 
         # RK core loop
-        K[0] = K[-1]
-        for s in range(1, state.n_stages):
-            K[s] = fun(x_old + C[s] * h,
-                             y_old + np.dot(K[:s].T, A[s,:s]) * h)
 
-        y = y_old + h * np.dot(K[:-1].T, B)
+        Dx = C[0] * h
+        K[1] = fun(x_old + Dx, y_old + Dx * K[0])
 
+        for s in range(2, state.n_stages):
+            K[s] = fun(x_old + C[s - 1] * h,
+                       y_old + np.dot(A[s - 2,:s] * h, K[:s]))
+
+        # Last step
+        x = x_old + h
+        y = y_old + np.dot(A[-2,:-1] * h, K[:-1])
         K[-1] = fun(x, y)
 
-        error_norm2 = calc_error_norm2(K, E, h, y, y_old, rtol, atol)
+        state.nfev += state.n_stages
+
+        error_norm2 = calc_error_norm2(np.dot(A[-1], K),
+                                       np.abs(y),
+                                       y_old_abs,
+                                       rtol,
+                                       atol) * _len * h * h
 
         if error_norm2 < 1:
             h_abs *= (MAX_FACTOR if error_norm2 == 0 else
                     min(MAX_FACTOR, SAFETY * error_norm2 ** state.error_exponent))
+            if h_abs < min_step: # Due to the SAFETY, the step can shrink
+                h_abs = min_step
             state.K = K
             state.h_abs = h_abs # type: ignore[misc]
             state.step_size = h # type: ignore[misc]
@@ -77,8 +91,8 @@ def step(state: RK) -> bool:
                 state.y = y # type: ignore[misc]
                 return False # Too small step size
 # ======================================================================
-@nb.njit(cache = IS_CACHE)
-def _init_RK(fun: ODEType,
+@nbDecC
+def init_RK(fun: ODE1Type,
             x0: np.float64,
             y0: npAFloat64,
             x_bound: np.float64,
@@ -86,14 +100,9 @@ def _init_RK(fun: ODEType,
             rtol: npAFloat64,
             atol: npAFloat64,
             first_step: np.float64,
-            error_exponent: np.float64,
-            n_stages: np.int8,
-            A: npAFloat64,
-            B: npAFloat64,
-            C: npAFloat64,
-            E: npAFloat64):
-
-    K = np.zeros((n_stages + 1, len(y0)), dtype = y0.dtype)
+            solver_params: tuple) -> RK:
+    error_exponent, n_stages, A, C = solver_params
+    K = np.zeros((n_stages + np.uint64(1), len(y0)), dtype = y0.dtype)
     K[-1] = fun(x0, y0)
     direction = np.float64(1. if x_bound == x0 else np.sign(x_bound - x0))
 
@@ -115,50 +124,24 @@ def _init_RK(fun: ODEType,
               h_abs,
               direction,
               step_size,
+              np.uint64(1),
               error_exponent,
               n_stages,
               A,
-              B,
               C,
-              E,
               K)
 # ----------------------------------------------------------------------
-def RK23(fun: ODEType,
-         x0: float,
-         y0: Arrayable,
-         x_bound: float,
-         max_step: float = np.inf,
-         rtol: Arrayable = 1e-3,
-         atol: Arrayable = 1e-6,
-         first_step: float = 0.) -> RK:
+class _Solver1_RK(Solver1):
+    _init = init_RK
+# ======================================================================
+class RK23(_Solver1_RK):
     """Interface for creating RK45 solver state."""
-    y0, rtol, atol = convert(y0, rtol, atol)
-    return _init_RK(fun,
-                    np.float64(x0),
-                    y0,
-                    np.float64(x_bound),
-                    np.float64(max_step),
-                    rtol,
-                    atol,
-                    np.float64(first_step),
-                    *RK23_params)
+    _solver_params = RK23_params
 # ----------------------------------------------------------------------
-def RK45(fun: ODEType,
-         x0: float,
-         y0: Arrayable,
-         x_bound: float,
-         max_step: float = np.inf,
-         rtol: Arrayable = 1e-3,
-         atol: Arrayable = 1e-6,
-         first_step: float = 0.) -> RK:
+class RK45(_Solver1_RK):
     """Interface for creating RK45 solver state."""
-    y0, rtol, atol = convert(y0, rtol, atol)
-    return _init_RK(fun,
-                    np.float64(x0),
-                    y0,
-                    np.float64(x_bound),
-                    np.float64(max_step),
-                    rtol,
-                    atol,
-                    np.float64(first_step),
-                    *RK45_params)
+    _solver_params = RK45_params
+# ----------------------------------------------------------------------
+class Solvers(IterableNamespace):
+    RK23 = RK23
+    RK45 = RK45
