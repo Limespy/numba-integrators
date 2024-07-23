@@ -7,6 +7,7 @@ from ..._aux import calc_tolerance
 from ..._aux import convert
 from ..._aux import nbDecFC
 from ..._aux import norm
+from ..._aux import SolverBase
 # ----------------------------------------------------------------------
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -147,3 +148,9 @@ def select_initial_step(fun: ODE2Type,
     h0, y1, dy1, d1 = calc_h0(y0, dy0, ddy0, direction, scale)
     ddy1 = fun(x0 + h0 * direction, y1, dy1)
     return calc_h_abs(ddy1 - ddy0, h0, scale, error_exponent, d1)
+# ======================================================================
+class SecondBasicSolverBase(SolverBase):
+    # ------------------------------------------------------------------
+    @property
+    def state(self) -> tuple[np.float64, npAFloat64, npAFloat64, npAFloat64]:
+        return self.x, self.y, self.dy, self.ddy

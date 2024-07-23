@@ -65,3 +65,13 @@ mass_spring2 = Problem2('mass_spring',
     lambda x: (arr(-6. * exp(-3. * x) + 7. * exp(-2. * x) + sin(x) - cos(x)),
                arr(18. * exp(-3. * x) - 14. * exp(-2. * x) + cos(x) + sin(x))),
                0., 3.)
+# ----------------------------------------------------------------------
+# Exp SIn
+# y(x) = exp(sin(x))
+# y'(x) = cos(x) * exp(sin(x)) = cos(x) * y(x)
+# y''(x) = -sin(x) * y(x) + cos(x) * y'(x)
+exp_sin2 = Problem2('exp_sin',
+                       lambda x, y, dy: cos(x) * dy - sin(x) * y,
+    lambda x: (arr(exp(sin(x))),
+               arr(cos(x) * exp(sin(x)))),
+               0., 3.)

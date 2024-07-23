@@ -8,9 +8,10 @@ import numpy as np
 from .._aux import _ODEA_return
 from .._aux import Arrayable
 from .._aux import calc_eps
-from .._aux import calc_error_norm2
+from .._aux import calc_error
 from .._aux import calc_tolerance
 from .._aux import convert
+from .._aux import FirstSolverBase
 from .._aux import jitclass_from_dict
 from .._aux import MAX_FACTOR
 from .._aux import MIN_FACTOR
@@ -22,7 +23,6 @@ from .._aux import npAFloat64
 from .._aux import RK_Params
 from .._aux import SAFETY
 from .._aux import Solver
-from .._aux import SolverBase
 from .._aux import step_prep
 from ._first_aux import calc_h0
 from ._first_aux import calc_h_abs
@@ -137,67 +137,64 @@ def nbAdvanced_step_signature(parameters_type: nbType,
 # ----------------------------------------------------------------------
 def step(fun: ODEAType,
         direction: np.float64,
-        x_old: np.float64,
-        y_old: npAFloat64,
+        x0: np.float64,
+        y0: npAFloat64,
         parameters: Any,
         h_abs: np.float64,
         h: np.float64,
         min_step: np.float64,
         K: npAFloat64,
-        n_stages: np.uint64,
         rtol: npAFloat64,
         atol: npAFloat64,
+        _len: np.float64,
+        n_stages: np.int64,
         A: npAFloat64,
         C: npAFloat64,
-        error_exponent: np.float64,
-        auxiliary: Any) -> tuple[bool,
-                                np.float64,
-                                npAFloat64,
-                                Any,
-                                np.float64,
-                                np.float64,
-                                np.uint64]:
-    nfev = np.uint64(0)
-    K[0] = K[-1]
-    y_old_abs = np.abs(y_old)
-    _len = 1. / len(y_old)
+        error_exponent: np.float64
+        ) -> tuple[bool,
+                   np.float64,
+                   npAFloat64,
+                   Any,
+                   np.float64,
+                   np.float64,
+                   np.int64]:
+    nfev = np.int64(0)
+    y0_abs = np.abs(y0)
     while True: # := not working
         h = direction * h_abs
 
         # RK core loop
         Dx = C[0] * h
-        K[1], _ = fun(x_old + Dx, y_old + Dx * K[0], parameters)
+        K[1], _ = fun(x0 + Dx, y0 + Dx * K[0], parameters)
 
         for s in range(2, n_stages):
-            K[s] = fun(x_old + C[s - 1] * h,
-                       y_old + np.dot(A[s - 2,:s] * h, K[:s]),
-                       parameters)
+            Dx = C[s - 1] * h
+            K[s], _ = fun(x0 + Dx,
+                          y0 + np.dot(A[s - 2,:s] * Dx, K[:s]),
+                          parameters)
 
         # Last step
-        x = x_old + h
-        y = y_old + np.dot(A[-2,:-1] * h, K[:-1])
+        x = x0 + h
+        y = y0 + np.dot(A[-2,:-1] * h, K[:-1])
         K[-1], auxiliary = fun(x, y, parameters)
 
         nfev += n_stages
 
-        error_norm2 = calc_error_norm2(np.dot(A[-1]* h, K),
-                                       np.abs(y),
-                                       y_old_abs,
-                                       rtol,
-                                       atol) * _len
+        error = calc_error(np.dot(A[-1], K), y, y0_abs, rtol, atol
+                           ) * _len * h * h
 
-        if error_norm2 < 1.:
-            h_abs *= (MAX_FACTOR if error_norm2 == 0 else
-                      min(MAX_FACTOR, SAFETY * error_norm2 ** error_exponent))
+        if error < 1.:
+            h_abs *= (MAX_FACTOR if error == 0 else
+                      min(MAX_FACTOR, SAFETY * error ** error_exponent))
             if h_abs < min_step: # Due to the SAFETY, the step can shrink
                 h_abs = min_step
             return True, x, y, auxiliary, h_abs, h, nfev # Step is accepted
         else:
-            h_abs *= max(MIN_FACTOR, SAFETY * error_norm2 ** error_exponent)
+            h_abs *= max(MIN_FACTOR, SAFETY * error ** error_exponent)
             if h_abs < min_step:
                 return False, x, y, auxiliary, h_abs, h, nfev # Too small step size
 # ----------------------------------------------------------------------
-class RKA(SolverBase):
+class RKA(FirstSolverBase):
     """Base class for advanced version of explicit Runge-Kutta methods."""
 
     def __init__(self, fun: ODEAType,
@@ -209,86 +206,68 @@ class RKA(SolverBase):
                     rtol: npAFloat64,
                     atol: npAFloat64,
                     first_step: np.float64,
-                    error_exponent: np.float64,
-                    n_stages: np.uint64,
+                    n_stages: np.int64,
                     A: npAFloat64,
                     C: npAFloat64,
-                    E: npAFloat64,
+                    error_exponent: np.float64,
                     nb_initial_step: InitialStepFType,
                     nbstep_advanced):
-        self.n_stages = n_stages
-        self.A = A
-        self.C = C
-        self.E = E
         self.fun = fun
         self.x = x0
         self.y = y0
-        self.parameters = parameters
+        self.parameter = parameters
         self.x_bound = x_bound
-        self.atol = atol
-        self.rtol = rtol
         self.max_step = max_step
-        self.initial_step = nb_initial_step
-        self._step = nbstep_advanced
-
-        self.K = np.zeros((self.n_stages + np.uint64(1), len(y0)), dtype = np.float64)
-        self.K[-1], self.auxiliary = self.fun(self.x, self.y, self.parameters)
-        self._nfev = np.uint64(1)
-        self.direction = 1. if x_bound == x0 else np.sign(x_bound - x0)
+        self.rtol = rtol
+        self.atol = atol
+        self.n_stages = n_stages
+        self.A = A
+        self.C = C
         self.error_exponent = error_exponent
+        self.initial_step = nb_initial_step
+        self._A_step = nbstep_advanced
 
-        if not first_step:
-            self.h_abs = self.initial_step(
-                self.fun, self.x, y0, self.parameters, self.K[-1], self.direction,
-                self.error_exponent, self.rtol, self.atol)
-            self._nfev += np.uint64(1)
-        else:
-            self.h_abs = np.abs(first_step)
-
-        min_step = 8. * calc_eps(self.x, self.direction)
-        if self.h_abs < min_step:
-            self.h_abs = min_step
-
-        self.step_size = 0.
+        self.reboot(first_step)
+    # ------------------------------------------------------------------
+    def _init_K(self, y_len: int):
+        self.K = np.zeros((self.n_stages + np.int64(1), y_len), np.float64)
+        self.K[0], self.auxiliary = self.fun(self.x, self.y, self.parameters)
+    # ------------------------------------------------------------------
+    def _select_initial_step(self) -> np.float64:
+        return self.initial_step(self.fun, self.x, self.y, self.parameters,
+                                 self.K[-1], self.direction,
+                                 self.error_exponent, self.rtol, self.atol)
     # --------------------------------------------------------------
-    def step(self) -> bool:
-        h_end = self.x_bound - self.x
-        if self.direction * h_end > 0.: # x_bound has not been reached
-            min_step, h_abs = step_prep(self.x,
-                                        self.h_abs,
-                                        self.direction,
-                                        h_end,
-                                        self.max_step)
-            (valid,
-            self.x,
-            self.y,
-            self.auxiliary,
-            self.h_abs,
-            self.step_size,
-            nfev) = self._step(self.fun,
-                                self.direction,
-                                self.x,
-                                self.y,
-                                self.parameters,
-                                h_abs,
-                                self.step_size,
-                                min_step,
-                                self.K,
-                                self.n_stages,
-                                self.rtol,
-                                self.atol,
-                                self.A,
-                                self.C,
-                                self.E,
-                                self.error_exponent,
-                                self.auxiliary)
-            self._nfev += nfev
-            return valid
-        return False
+    def _step(self, h_abs: np.float64, h_abs_min: np.float64) -> bool:
+        (valid,
+        self.x,
+        self.y,
+        self.auxiliary,
+        self.h_abs,
+        self.step_size,
+        nfev) = self._A_step(self.fun,
+                            self.direction,
+                            self.x,
+                            self.y,
+                            self.parameters,
+                            h_abs,
+                            self.step_size,
+                            h_abs_min,
+                            self.K,
+                            self.rtol,
+                            self.atol,
+                            self._len,
+                            self.n_stages,
+                            self.A,
+                            self.C,
+                            self.error_exponent)
+        self._nfev += nfev
+        self.K[0] = self.K[-1]
+        return valid
     # ------------------------------------------------------------------
     @property
-    def state(self) -> tuple[np.float64, npAFloat64, Any]:
-        return self.x, self.y, self.auxiliary
+    def state(self) -> tuple[np.float64, npAFloat64, npAFloat64, Any]:
+        return self.x, self.y, self.K[0], self.auxiliary
 # ----------------------------------------------------------------------
 AdvancedSolver: TypeAlias = Callable[[ODEAType,
                                       float,

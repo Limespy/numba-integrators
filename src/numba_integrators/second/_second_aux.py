@@ -35,11 +35,11 @@ def calc_h_abs(y_diff: npAFloat64,
                 else (max(d1, d2) * 100.) ** (2. *error_exponent)))
 # ----------------------------------------------------------------------
 class RKN_Params(NamedTuple):
-    error_exponent: np.float64
-    n_stages: np.uint64
+    n_stages: np.int64
     alpha: npAFloat64
     beta: npAFloat64
     gamma: npAFloat64
+    error_exponent: np.float64
 # ----------------------------------------------------------------------
 def make_RKN_params(order: int | float,
                    beta: Iterable[Iterable[float]],
@@ -48,27 +48,43 @@ def make_RKN_params(order: int | float,
     if not alpha:
         alpha = [sum(row) for row in beta]
     _a, _b, _g = (np.array(M, np.float64) for M in (alpha, beta, gamma))
-
-
     _a_inv = 1. / _a.reshape(-1,1)[1:]
 
+    # Condition from the publication
+    # \Sigma_{\lambda=1}^{\kappa-1} \beta[\kappa,\lambda] \cdot \alpha[\lambda]
+    # = alpha[\kappa]^2 / 2
+    # for \kappa = [2, 8]
+    for k in range(2, 7):
+        ref_a = 0.5 * _a[k-1]**2
+        ref_b = np.dot(_b[k-2, 1:k], _a[:k-1])
+        if abs(ref_a -ref_b) > 1e-14 * ref_a:
+          raise ValueError(k, ref_b, ref_a)
+
+    # Condition from the publication
+    # \Sigma_{\lambda=1}^{\kappa-1} \beta[\kappa,\lambda] \cdot \alpha[\lambda]^2
+    # = alpha[\kappa]^4 / 3
+    # for \kappa = [2, 8]
+    for k in range(2, 7):
+        ref_a = _a[k-1]**3 / 3.
+        ref_b = np.dot(_b[k-2, 1:k], _a[:k-1] * _a[:k-1])
+        if abs(ref_a -ref_b) > 1e-14 * ref_a:
+          raise ValueError(k, ref_b, ref_a)
     # Normalising sum to 1
     _b[:-2] *= _a_inv
-    print(np.sum(_g, axis = 1))
+
     # sum to 0.5
     _g[:-2] *= (_a_inv * _a_inv)
     # _g[-2:] *= 0.5 # this already is 0.5 ???
     b_sum = np.sum(_b, axis = 1)
     g_sum = np.sum(_g, axis = 1)
     if not (np.allclose(b_sum, 1., 1e-16, 1e-16)
-            and np.allclose(g_sum[:-2], 0.5, 1e-16, 1e-16)):
+            and np.allclose(g_sum, 0.5, 1e-16, 1e-16)):
         print(b_sum)
         print(g_sum)
         raise ValueError
 
-    return RKN_Params(np.float64(-0.5 / (order + 1.)),
-                     np.uint64(len(beta)),
-                     _a, _b, _g)
+    return RKN_Params(np.int64(len(beta) + 1),
+                     _a, _b, _g, np.float64(-0.5 / (order + 1.)),)
 # ----------------------------------------------------------------------
 RKN56_params = make_RKN_params(5.,
 ((1/10,         3/10,         0,            0,

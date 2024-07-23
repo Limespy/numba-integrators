@@ -5,7 +5,7 @@ with these
 """
 import numpy as np
 
-from .._aux import calc_error_norm2
+from .._aux import calc_error
 from .._aux import IterableNamespace
 from .._aux import MAX_FACTOR
 from .._aux import MIN_FACTOR
@@ -22,17 +22,17 @@ from .basic import select_initial_step
 # ======================================================================
 @nbDecC
 def step(state: RK) -> bool:
-    h_end = state.x_bound - state.x
-    if state.direction * h_end <= 0: # x_bound has been reached
+    h_abs = state.x_bound - state.x
+    if state.direction * h_abs <= 0: # x_bound has been reached
         return False
-    x_old = state.x
+    x0 = state.x
     x = state.x
-    y_old = state.y
+    y0 = state.y
     y = state.y
     h_abs = state.h_abs
     direction = state.direction
 
-    min_step, h_abs = step_prep(x_old, h_abs, direction, h_end, state.max_step)
+    min_step, h_abs = step_prep(x0, h_abs, direction, h_abs, state.max_step)
 
     K = state.K
     A = state.A
@@ -41,8 +41,8 @@ def step(state: RK) -> bool:
     atol = state.atol
     fun = state.fun
     K[0] = K[-1]
-    y_old_abs = np.abs(y_old)
-    _len = 1. / len(y_old)
+    y0_abs = np.abs(y0)
+    _len = 1. / len(y0)
     while True: # := not working
 
         h = direction * h_abs
@@ -50,28 +50,25 @@ def step(state: RK) -> bool:
         # RK core loop
 
         Dx = C[0] * h
-        K[1] = fun(x_old + Dx, y_old + Dx * K[0])
+        K[1] = fun(x0 + Dx, y0 + Dx * K[0])
 
         for s in range(2, state.n_stages):
-            K[s] = fun(x_old + C[s - 1] * h,
-                       y_old + np.dot(A[s - 2,:s] * h, K[:s]))
+            K[s] = fun(x0 + C[s - 1] * h,
+                       y0 + np.dot(A[s - 2,:s] * h, K[:s]))
 
         # Last step
-        x = x_old + h
-        y = y_old + np.dot(A[-2,:-1] * h, K[:-1])
+        x = x0 + h
+        y = y0 + np.dot(A[-2,:-1] * h, K[:-1])
         K[-1] = fun(x, y)
 
         state.nfev += state.n_stages
 
-        error_norm2 = calc_error_norm2(np.dot(A[-1], K),
-                                       np.abs(y),
-                                       y_old_abs,
-                                       rtol,
-                                       atol) * _len * h * h
+        error = calc_error(np.dot(A[-1], K), y, y0_abs, rtol, atol
+                           ) * _len * h * h
 
-        if error_norm2 < 1:
-            h_abs *= (MAX_FACTOR if error_norm2 == 0 else
-                    min(MAX_FACTOR, SAFETY * error_norm2 ** state.error_exponent))
+        if error < 1:
+            h_abs *= (MAX_FACTOR if error == 0 else
+                    min(MAX_FACTOR, SAFETY * error ** state.error_exponent))
             if h_abs < min_step: # Due to the SAFETY, the step can shrink
                 h_abs = min_step
             state.K = K
@@ -82,7 +79,7 @@ def step(state: RK) -> bool:
             return True # Step is accepted
         else:
             h_abs *= max(MIN_FACTOR,
-                                SAFETY * error_norm2 ** state.error_exponent)
+                                SAFETY * error ** state.error_exponent)
             if h_abs < min_step:
                 state.K = K
                 state.h_abs = h_abs # type: ignore[misc]
@@ -101,10 +98,10 @@ def init_RK(fun: ODE1Type,
             atol: npAFloat64,
             first_step: np.float64,
             solver_params: tuple) -> RK:
-    error_exponent, n_stages, A, C = solver_params
-    K = np.zeros((n_stages + np.uint64(1), len(y0)), dtype = y0.dtype)
+    n_stages, A, C, error_exponent = solver_params
+    K = np.zeros((n_stages + np.int64(1), len(y0)), dtype = y0.dtype)
     K[-1] = fun(x0, y0)
-    direction = np.float64(1. if x_bound == x0 else np.sign(x_bound - x0))
+    direction = np.sign(x_bound - x0)
 
     if not first_step:
         h_abs = select_initial_step(
@@ -124,7 +121,7 @@ def init_RK(fun: ODE1Type,
               h_abs,
               direction,
               step_size,
-              np.uint64(1),
+              np.int64(1),
               error_exponent,
               n_stages,
               A,

@@ -22,6 +22,8 @@ def timing():
     problem = ref.sine
     x_end = problem.x_end
     args = (problem.differential, problem.x0, problem.y0)
+
+    problem.differential(problem.x0, problem.y0)
     # ------------------------------------------------------------------
     # Scipy
     # print('\nScipy')
@@ -64,6 +66,8 @@ def timing():
     @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
     def g(t, y):
         return 1.1 * y
+
+    g(problem.x0, problem.y0)
 
     t0 = perf_counter()
     solver = RK45(g, problem.x0, problem.y0,
@@ -160,9 +164,6 @@ def timing():
 
     times['2nd order'] = {}
 
-    @nb.njit(nb.float64[:](nb.float64, nb.float64[:], nb.float64[:]))
-    def g2(t, y, dy):
-        return 1.1 * y
 
     t0 = perf_counter()
 
@@ -171,36 +172,58 @@ def timing():
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'import [{prefix}s]'] = rounded
 
-    t0 = perf_counter()
-
     from numba_integrators.second.basic.reference import sine2 as problem2
+    problem2.differential(problem2.x0, problem2.y0, problem2.dy0)
 
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:], nb.float64[:]))
+    def g2(t, y, dy):
+        return 1.1 * y
+
+    g2(problem2.x0, problem2.y0, problem2.dy0)
+
+    t0 = perf_counter()
     solver = RK45_2(g2,
-                        problem2.x0,
-                        problem2.y0,
-                        problem2.dy0,
-                        problem2.x_end,
-                        rtol = 1e-10,
-                        atol = 1e-10)
+                    problem2.x0,
+                    problem2.y0,
+                    problem2.dy0,
+                    problem2.x_end,
+                    rtol = 1e-10,
+                    atol = 1e-10)
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'first initialisation [{prefix}s]'] = rounded
 
+    @nb.njit(nb.float64[:](nb.float64, nb.float64[:], nb.float64[:]))
+    def g2(t, y, dy):
+        return 1.2 * y
+
+    g2(problem2.x0, problem2.y0, problem2.dy0)
+
     t0 = perf_counter()
-    solver = RK45_2(problem2.differential,
-                        problem2.x0,
-                        problem2.y0,
-                        problem2.dy0,
-                        problem2.x_end*500.,
-                        rtol = 1e-10,
-                        atol = 1e-10)
+    solver = RK45_2(g2,
+                    problem2.x0,
+                    problem2.y0,
+                    problem2.dy0,
+                    problem2.x_end,
+                    rtol = 1e-10,
+                    atol = 1e-10)
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'second initialisation [{prefix}s]'] = rounded
+
+    t0 = perf_counter()
+    solver.fun = problem2.differential
+    solver.x = np.float64(problem2.x0)
+    solver.y = np.array(problem2.y0)
+    solver.dy = np.array(problem2.dy0)
+    solver.x_bound = np.float64(problem2.x_end*500.)
+    solver.reboot()
+
+    rounded, prefix = eng_round(perf_counter() - t0)
+    times['2nd order'][f'swapping [{prefix}s]'] = rounded
 
     t0 = perf_counter()
     ni.step(solver)
     rounded, prefix = eng_round(perf_counter() - t0)
     times['2nd order'][f'first step [{prefix}s]'] = rounded
-
 
     n = 0
     t0 = perf_counter()

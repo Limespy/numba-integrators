@@ -1,6 +1,7 @@
 import warnings
 from collections.abc import Callable
 from collections.abc import Iterable
+from math import ulp
 from typing import Any
 from typing import NamedTuple
 from typing import Protocol
@@ -20,7 +21,10 @@ MIN_FACTOR = 0.2  # Minimum allowed decrease in a step size.
 MAX_FACTOR = 10  # Maximum allowed increase in a step size.
 
 IS_CACHE = True
-IS_NUMBA = True
+IS_NUMBA = False
+
+SMALL_NUMBER = np.spacing(np.float64(0.))
+
 # Types
 npA: TypeAlias = NDArray[Any]
 npAFloat64: TypeAlias = NDArray[np.float64]
@@ -71,10 +75,10 @@ def norm(x: npAFloat64) -> np.float64:
 #                                   npAFloat64]
 # ----------------------------------------------------------------------
 class RK_Params(NamedTuple):
-    error_exponent: np.float64
-    n_stages: np.uint64
+    n_stages: np.int64
     A: npAFloat64
     C: npAFloat64
+    error_exponent: np.float64
 # ----------------------------------------------------------------------
 def make_rk_params(order: int | float,
                    A: Iterable[Iterable[float]],
@@ -89,11 +93,11 @@ def make_rk_params(order: int | float,
     if not (np.allclose(A_sums[:-1], 1., 5e-16, 5e-16)
             and abs(A_sums[-1]) < 1e-16):
         raise ValueError(A_sums)
-    return RK_Params(np.float64(-0.5 / (order + 1.)),
-                     np.uint64(len(C) + 1),
-                     _A, _C)
+    return RK_Params(np.int64(len(C) + 1),
+                     _A, _C,
+                     np.float64(-0.5 / (order + 1.)),)
 # ----------------------------------------------------------------------
-RK23_params = make_rk_params(2,
+RK23_params = make_rk_params(2.,
                  ((0.,  3/4,    0.,  0.),
                   (2/9, 1/3,    4/9,  0.),
                   (5/72, -1/12, -1/9, 1/8)),
@@ -158,10 +162,58 @@ class Solver(Protocol):
         ...
 # ======================================================================
 class SolverBase:
-    _nfev: np.uint64
+    _nfev: nb.int64
+    x: nb.float64
+    x_bound: nb.float64
+    h_abs: nb.float64
+    _len: nb.float64
+    _h_next: nb.float64
+    _h_abs_min: nb.float64
+    # ------------------------------------------------------------------
+    def _calc_h(self, h_abs: np.float64, h_end: np.float64) -> None:
+        eps =  np.spacing(self.x)
+        self._h_abs_min = 8. * eps
+        self._h_next = np.copysign((min(max(h_abs, self._h_abs_min),
+                                        abs(h_end),
+                                        self.max_step - eps)),
+                                   h_end)
+    # ------------------------------------------------------------------
+    def step(self) -> bool:
+        if self._h_next != 0.:
+            error, nfev = self._step()
+            self._nfev += np.int64(nfev)
+            if error < 1.:
+                scaler = SAFETY * (error + SMALL_NUMBER) ** self.error_exponent
+                self._calc_h(abs(self.step_size) * min(MAX_FACTOR, scaler),
+                             self.x_bound - self.x)
+                return True
+        return False
+    # ------------------------------------------------------------------
+    def reboot(self, first_step: np.float64 = 0.):
+        y_len = len(self.y)
+        self._init_K(y_len)
+        self._len = 1./y_len
+        self.step_size = 0.
+        h_end = self.x_bound - self.x
+
+        h_abs, self._nfev = ((np.abs(first_step), np.int64(1))
+                                  if first_step else
+                                  (self._select_initial_step(h_end),
+                                   np.int64(2)))
+
+        self._calc_h(h_abs, h_end)
+    # ------------------------------------------------------------------
+    def _init_K(self, y_len: int) -> None:
+        ...
+    # ------------------------------------------------------------------
+    def _select_initial_step(self, direction: np.float64) -> np.float64:
+        return np.float64(0.)
+    # ------------------------------------------------------------------
+    def _step(self) -> tuple[np.float64, np.int64]:
+        return np.float64(np.inf), np.int64(9)
     # ------------------------------------------------------------------
     @property
-    def nfev(self) -> np.uint64:
+    def nfev(self) -> np.int64:
         return self._nfev
 # ======================================================================
 class IterableNamespaceMeta(type):
@@ -181,46 +233,44 @@ class IterableNamespace(metaclass = IterableNamespaceMeta):
         cls._members = members
 # ======================================================================
 @nbDecC
-def calc_error_norm2(step_err_estimator: npAFloat64,
-                    y_abs: np.float64,
-                    y_old_abs: npAFloat64,
+def calc_error(step_err_estimator: npAFloat64,
+                    y: np.float64,
+                    y0_abs: npAFloat64,
                     rtol: npAFloat64,
                     atol: npAFloat64) -> np.float64:
-    np.maximum(y_old_abs, y_abs, y_abs)
+    y_abs = np.abs(y)
+    np.maximum(y0_abs, y_abs, y_abs)
     step_err_estimator /= calc_tolerance(y_abs, rtol, atol)
     return np.dot(step_err_estimator, step_err_estimator)
 # ======================================================================
 @nbDecC
-def step_prep(x_old: np.float64,
+def step_prep(x0: np.float64,
               h_abs: np.float64,
-              direction: np.float64,
+              x_bound: np.float64,
               h_end: np.float64,
               max_step: np.float64
               ) -> tuple[np.float64, np.float64]:
     """Prep for explicit RK solver step."""
-    eps = calc_eps(x_old, direction)
-
-    h_limit_abs = min(abs(h_end), max_step - eps)
-
-    if h_abs > h_limit_abs:
-        h_abs = h_limit_abs
-    return 8 * eps, h_abs
+    eps = abs(np.nextafter(x0, x_bound) - x0)
+    return 8 * eps, min(h_abs, abs(h_end), max_step - eps)
 # ======================================================================
-base_spec = {'A': nbARO(2),
-             'C': nbARO(1),
-             'K': nbA(2),
-             'n_stages': nb.uint64,
-             'x': nb.float64,
+base_spec = {'x': nb.float64,
              'y': nbA(1),
              'x_bound': nb.float64,
-             'direction': nb.float64,
-             'step_size': nb.float64,
              'max_step': nb.float64,
-             'error_exponent': nb.float64,
-             'h_abs': nb.float64,
              'atol': nbARO(1),
              'rtol': nbARO(1),
-             '_nfev': nb.uint64}
+             'n_stages': nb.int64,
+             'A': nbARO(2),
+             'C': nbARO(1),
+             'error_exponent': nb.float64,
+             'K': nbA(2),
+             '_h_next': nb.float64,
+             '_h_abs_min': nb.float64,
+             'step_size': nb.float64,
+             '_nfev': nb.int64,
+             '_len': nb.float64}
+
 # ======================================================================
 if IS_NUMBA:
     def jitclass_from_dict(update: dict[str, nbType] = {},

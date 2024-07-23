@@ -3,8 +3,7 @@ import numba as nb
 import numpy as np
 
 from .._aux import Arrayable
-from .._aux import calc_eps
-from .._aux import calc_error_norm2
+from .._aux import calc_error
 from .._aux import calc_tolerance
 from .._aux import convert
 from .._aux import IS_CACHE
@@ -21,10 +20,9 @@ from .._aux import RK23_params
 from .._aux import RK45_params
 from .._aux import RK_Params
 from .._aux import SAFETY
-from .._aux import SolverBase
-from .._aux import step_prep
 from ._first_aux import calc_h0
 from ._first_aux import calc_h_abs
+from ._first_aux import FirstSolverBase
 from ._first_aux import nbODE_type
 from ._first_aux import ODE1Type
 # ======================================================================
@@ -45,7 +43,7 @@ def select_initial_step(fun: ODE1Type,
                         error_exponent: np.float64,
                         rtol: npAFloat64,
                         atol: npAFloat64) -> np.float64:
-    """Empirically select a good initial step.
+    """Empirically select a good initial _RK_adaptive_step.
 
     The algorithm is described in [1]_.
 
@@ -72,7 +70,7 @@ def select_initial_step(fun: ODE1Type,
     Returns
     -------
     h_abs : np.float64
-        Absolute value of the suggested initial step.
+        Absolute value of the suggested initial _RK_adaptive_step.
 
     References
     ----------
@@ -80,74 +78,64 @@ def select_initial_step(fun: ODE1Type,
            Equations I: Nonstiff Problems", Sec. II.4.
     """
     scale = calc_tolerance(np.abs(y0), rtol, atol)
-    h0, y1, d1 = calc_h0(y0, dy0, direction, scale)
-    dy1 = fun(x0 + h0 * direction, y1)
-    return calc_h_abs(dy1 - dy0, h0, scale, error_exponent, d1)
+    h, h_abs, y1, d1 = calc_h0(y0, dy0, direction, scale)
+    return calc_h_abs(fun(x0 + h, y1) - dy0, h_abs, scale, error_exponent, d1)
 # ======================================================================
 @nbDecC
-def step(fun: ODE1Type,
-          direction: np.float64,
-          x_old: np.float64,
-          y_old: npAFloat64,
-          h_abs: np.float64,
+def _step(fun: ODE1Type,
+             x0: np.float64,
+             y0: npAFloat64,
+             h: np.float64,
+             K: npAFloat64,
+             n_stages: np.int64,
+             A: npAFloat64,
+             C: npAFloat64) -> tuple[np.float64, np.float64, npAFloat64]:
+    """RK core step."""
+    Dx = C[0] * h
+    K[1] = fun(x0 + Dx, y0 + Dx * K[0])
+
+    for s in range(2, n_stages):
+        Dx = C[s - 1] * h
+        K[s] = fun(x0 + Dx,
+                    y0 + np.dot(Dx * A[s - 2,:s], K[:s]))
+
+    # Last substep
+    x = x0 + h
+    y = y0 + np.dot(A[-2,:-1] * h, K[:-1])
+    K[-1] = fun(x, y)
+
+    return x, y
+# ======================================================================
+@nbDecC
+def _RK_adaptive_step(fun: ODE1Type,
+          x0: np.float64,
+          y0: npAFloat64,
           h: np.float64,
-          min_step: np.float64,
+          h_abs_min: np.float64,
           K: npAFloat64,
-          n_stages: np.uint64,
           rtol: npAFloat64,
           atol: npAFloat64,
+          _len: np.float64,
+          n_stages: np.int64,
           A: npAFloat64,
           C: npAFloat64,
-          error_exponent: np.float64) -> tuple[bool,
-                                          npAFloat64,
-                                          np.float64,
-                                          np.float64,
-                                          np.float64,
-                                          np.uint64]:
-    nfev = np.uint64(0)
-    K[0] = K[-1]
-    y_old_abs = np.abs(y_old)
-    _len = 1. / len(y_old)
-    while True: # := not working
-        h = direction * h_abs
-        # _RK core loop
-        # len(K) == n_stages + 1
-        # First step simply
-        Dx = C[0] * h
-        K[1] = fun(x_old + Dx, y_old + Dx * K[0])
+          error_exponent: np.float64
+          ) -> tuple[np.float64, np.float64, npAFloat64, np.float64, np.int64]:
+    nfev = np.int64(n_stages)
+    y0_abs = np.abs(y0)
+    x, y = _step(fun, x0, y0, h, K, n_stages, A, C)
+    error = calc_error(np.dot(A[-1], K), y, y0_abs, rtol, atol) * _len * h * h
 
-        for s in range(2, n_stages):
-            K[s] = fun(x_old + C[s - 1] * h,
-                       y_old + np.dot(A[s - 2,:s] * h, K[:s]))
-
-        # Last step
-        x = x_old + h
-        y = y_old + np.dot(A[-2,:-1] * h, K[:-1])
-        K[-1] = fun(x, y)
-        # print(x, y)
+    while error > 1. and abs(h) > h_abs_min: # := not working
+        h *= max(MIN_FACTOR, SAFETY * error ** error_exponent)
+        x, y = _step(fun, x0, y0, h, K, n_stages, A, C)
+        error = calc_error(np.dot(A[-1], K), y, y0_abs, rtol, atol
+                           ) * _len * h * h
         nfev += n_stages
-
-        error_norm2 = calc_error_norm2(np.dot(A[-1], K),
-                                       np.abs(y),
-                                       y_old_abs,
-                                       rtol,
-                                       atol) * _len * h * h
-
-        if error_norm2 < 1.: # Maybe increasing the step and returning
-            h_abs *= (MAX_FACTOR if error_norm2 == 0. else
-                      min(MAX_FACTOR, SAFETY * error_norm2 ** error_exponent))
-
-            if h_abs < min_step: # Due to the SAFETY, the step can shrink
-                h_abs = min_step
-
-            return True, y, x, h_abs, h, nfev # Step is accepted
-        else: # shringking the step
-            h_abs *= max(MIN_FACTOR, SAFETY * error_norm2 ** error_exponent)
-            if h_abs < min_step:
-                return False, y, x, h_abs, h, nfev# Too small step size
+    return error, x, y, h, nfev
 # ----------------------------------------------------------------------
 @jitclass_from_dict({'fun': nbODE_type})
-class _RK(SolverBase):
+class _RK(FirstSolverBase):
     """Base class for explicit Runge-Kutta methods."""
 
     def __init__(self,
@@ -159,79 +147,56 @@ class _RK(SolverBase):
                  rtol: npAFloat64,
                  atol: npAFloat64,
                  first_step: np.float64,
-                 error_exponent: np.float64,
-                 n_stages: np.uint64,
+                 n_stages: np.int64,
                  A: npAFloat64,
-                 C: npAFloat64):
-        self.n_stages = n_stages
-        self.A = A
-        self.C = C
+                 C: npAFloat64,
+                 error_exponent: np.float64):
         self.fun = fun
         self.x = x0
         self.y = y0
         self.x_bound = x_bound
-        self.atol = atol
-        self.rtol = rtol
         self.max_step = max_step
-
-        _1 = np.uint64(1)
-
-        self.K = np.zeros((self.n_stages + _1, len(y0)), dtype = np.float64)
-        self.K[-1] = self.fun(self.x, self.y)
-        self._nfev = _1
-
-        self.direction = 1. if x_bound == x0 else np.sign(x_bound - x0)
-
+        self.rtol = rtol
+        self.atol = atol
+        self.n_stages = n_stages
+        self.A = A
+        self.C = C
         self.error_exponent = error_exponent
 
-        if not first_step:
-            self.h_abs = select_initial_step(
-                self.fun, self.x, y0, self.K[-1], self.direction,
-                self.error_exponent, self.rtol, self.atol)
-            self._nfev += _1
-        else:
-            self.h_abs = np.abs(first_step)
-
-        min_step = 8. * calc_eps(self.x, self.direction)
-        if self.h_abs < min_step:
-            self.h_abs = min_step
-
-        self.step_size = 0.
+        self.reboot(first_step)
     # ------------------------------------------------------------------
-    def step(self) -> bool:
-        h_end = self.x_bound - self.x
-        if self.direction * h_end > 0.: # x_bound has not been reached
-            min_step, h_abs = step_prep(self.x,
-                                        self.h_abs,
-                                        self.direction,
-                                        h_end,
-                                        self.max_step)
-            (valid,
-            self.y,
-            self.x,
-            self.h_abs,
-            self.step_size,
-            nfev) = step(self.fun,
-                            self.direction,
-                            self.x,
-                            self.y,
-                            h_abs,
-                            self.step_size,
-                            min_step,
-                            self.K,
-                            self.n_stages,
-                            self.rtol,
-                            self.atol,
-                            self.A,
-                            self.C,
-                            self.error_exponent)
-            self._nfev += nfev
-            return valid
-        return False
+    def _init_K(self, y_len: int):
+        self.K = np.zeros((self.n_stages + np.int64(1), y_len), np.float64)
+        self.K[0] = self.fun(self.x, self.y)
+    # ------------------------------------------------------------------
+    def _select_initial_step(self, direction: np.float64) -> np.float64:
+        return select_initial_step(self.fun, self.x, self.y, self.K[-1],
+                    direction, self.error_exponent, self.rtol, self.atol)
+    # ------------------------------------------------------------------
+    def _step(self) -> tuple[np.float64, np.int64]:
+        (error,
+        self.x,
+        self.y,
+        self.step_size,
+        nfev) = _RK_adaptive_step(self.fun,
+                    self.x,
+                    self.y,
+                    self._h_next,
+                    self._h_abs_min,
+                    self.K,
+                    self.rtol,
+                    self.atol,
+                    self._len,
+                    self.n_stages,
+                    self.A,
+                    self.C,
+                    self.error_exponent)
+        self.K[0] = self.K[-1]
+        return  error, nfev
     # ------------------------------------------------------------------
     @property
-    def state(self) -> tuple[np.float64, npAFloat64]:
-        return self.x, self.y
+    def state(self) -> tuple[np.float64, npAFloat64, npAFloat64]:
+        return self.x, self.y, self.K[0]
 # ======================================================================
 @nbDec(cache = False) # Some issue in making caching jitclasses
 def init_RK(fun: ODE1Type,

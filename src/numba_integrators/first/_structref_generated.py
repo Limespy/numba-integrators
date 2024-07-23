@@ -1,7 +1,6 @@
 # pylint: skip-file
 """This file has been generated automatically."""
 import numba as nb
-import numpy as np
 from numba.experimental import structref
 
 # Define a StructRef.

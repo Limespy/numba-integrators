@@ -71,6 +71,16 @@ mass_spring = Problem('mass_spring',
     lambda x: (arr(-6. * exp(-3. * x) + 7. * exp(-2. * x) + sin(x) - cos(x),
                    18. * exp(-3. * x) - 14. * exp(-2. * x) + cos(x) + sin(x))),
                0., 3.)
+# ----------------------------------------------------------------------
+# Exp SIn
+# y(x) = exp(sin(x))
+# y'(x) = cos(x) * exp(sin(x)) = cos(x) * y(x)
+# y''(x) = -sin(x) * y(x) + cos(x) * y'(x)
+exp_sin = Problem('exp_sin',
+                    lambda x, y: np.array((y[1],
+                                           cos(x) * y[1] - sin(x) * y[0])),
+    lambda x: (arr(exp(sin(x)), cos(x) * exp(sin(x)))),
+               0., 3.)
 # ======================================================================
 scipy_integrators = {'RK23': scipy.integrate.RK23,
                      'RK45': scipy.integrate.RK45}
