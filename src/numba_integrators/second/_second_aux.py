@@ -72,9 +72,9 @@ def make_RKN_params(order: int | float,
     # Normalising sum to 1
     _b[:-2] *= _a_inv
 
-    # sum to 0.5
+    # # sum to 0.5
     _g[:-2] *= (_a_inv * _a_inv)
-    # _g[-2:] *= 0.5 # this already is 0.5 ???
+    # # _g[-2:] *= 0.5 # this already is 0.5 ???
     b_sum = np.sum(_b, axis = 1)
     g_sum = np.sum(_g, axis = 1)
     if not (np.allclose(b_sum, 1., 1e-16, 1e-16)
@@ -86,7 +86,7 @@ def make_RKN_params(order: int | float,
     return RKN_Params(np.int64(len(beta) + 1),
                      _a, _b, _g, np.float64(-0.5 / (order + 1.)),)
 # ----------------------------------------------------------------------
-RKN56_params = make_RKN_params(5.,
+RKNF56_params = make_RKN_params(5.,
 ((1/10,         3/10,         0,            0,
   0,            0,            0,            0),
  (3/20,         0,            9/20,         0,

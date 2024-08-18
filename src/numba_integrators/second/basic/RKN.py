@@ -12,7 +12,7 @@ from ..._aux import nbDec
 from ..._aux import nbDecC
 from ..._aux import npAFloat64
 from ..._aux import SAFETY
-from .._second_aux import RKN56_params
+from .._second_aux import RKNF56_params
 from ._second_basic_aux import nbODE2_type
 from ._second_basic_aux import ODE2Type
 from ._second_basic_aux import SecondBasicSolverBase
@@ -196,7 +196,7 @@ class RKNF_Solver(Solver2):
     _init = init_RKNF
 # ----------------------------------------------------------------------
 class RKNF56(RKNF_Solver):
-    _solver_params = RKN56_params
+    _solver_params = RKNF56_params
 # ----------------------------------------------------------------------
 class Solvers(IterableNamespace):
     RKNF56 = RKNF56

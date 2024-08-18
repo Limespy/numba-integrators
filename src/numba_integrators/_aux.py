@@ -1,15 +1,10 @@
 import warnings
-from collections.abc import Callable
-from collections.abc import Iterable
-from math import ulp
-from typing import Any
 from typing import NamedTuple
 from typing import Protocol
-from typing import TypeAlias
+from typing import TYPE_CHECKING
 
 import numba as nb
 import numpy as np
-from numpy.typing import NDArray
 # ======================================================================
 warnings.filterwarnings(action = 'ignore',
                         category = nb.errors.NumbaExperimentalFeatureWarning)
@@ -26,19 +21,32 @@ IS_NUMBA = False
 SMALL_NUMBER = np.spacing(np.float64(0.))
 
 # Types
-npA: TypeAlias = NDArray[Any]
-npAFloat64: TypeAlias = NDArray[np.float64]
-npAInt64: TypeAlias = NDArray[np.int64]
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from collections.abc import Iterable
+    from typing import Any
+    from typing import TypeAlias
 
-_ODEA_return: TypeAlias = tuple[npAFloat64, Any]
+    from numpy.typing import NDArray
 
-ODEA2Type: TypeAlias = Callable[[np.float64, npAFloat64, npAFloat64, Any],
-                              _ODEA_return]
-Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
+    npA: TypeAlias = NDArray[Any]
+    npAFloat64: TypeAlias = NDArray[np.float64]
+    npAInt64: TypeAlias = NDArray[np.int64]
 
-# numba types
-nbType: TypeAlias = nb.core.types.abstract.Type
-nbSignature: TypeAlias = nb.core.typing.templates.Signature
+    ODEA_return: TypeAlias = tuple[npAFloat64, Any]
+
+    Arrayable: TypeAlias = int | float | npAFloat64 | Iterable
+
+    # numba types
+    nbType: TypeAlias = nb.core.types.abstract.Type
+    nbSignature: TypeAlias = nb.core.typing.templates.Signature
+else:
+    class EmptySubscriptable:
+        def __getitem__(self, _):
+            return self
+    Callabel = Iterable = EmptySubscriptable()
+    Any = npA = npAFloat64 = npAInt64 = ODEA_return = None
+    Arrayable = nbType = nbSignature = None
 # ----------------------------------------------------------------------
 # Signatures
 def nbA(dim: int = 1, dtype = nb.float64) -> nbType:

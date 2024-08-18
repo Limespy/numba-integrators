@@ -1,12 +1,8 @@
-from collections.abc import Callable
-from typing import Any
-from typing import TypeAlias
+from typing import TYPE_CHECKING
 
 import numba as nb
 import numpy as np
 
-from .._aux import _ODEA_return
-from .._aux import Arrayable
 from .._aux import calc_eps
 from .._aux import calc_error
 from .._aux import calc_tolerance
@@ -18,17 +14,38 @@ from .._aux import MIN_FACTOR
 from .._aux import nbA
 from .._aux import nbARO
 from .._aux import nbSignature
-from .._aux import nbType
-from .._aux import npAFloat64
 from .._aux import RK_Params
 from .._aux import SAFETY
 from .._aux import Solver
 from .._aux import step_prep
 from ._first_aux import calc_h0
 from ._first_aux import calc_h_abs
+
 # ======================================================================
-ODEAType: TypeAlias = Callable[[np.float64, npAFloat64, Any],
-                              _ODEA_return]
+if TYPE_CHECKING: # Types
+    from collections.abc import Callable
+    from typing import Any
+    from typing import TypeAlias
+
+    from .._aux import ODEA_return
+    from .._aux import Arrayable
+    from .._aux import nbType
+    from .._aux import npAFloat64
+
+    ODEAType: TypeAlias = Callable[[np.float64, npAFloat64, Any],
+                                ODEA_return]
+
+    InitialStepFType: TypeAlias = Callable[[ODEAType,
+                                        np.float64,
+                                        npAFloat64,
+                                        Any,
+                                        npAFloat64,
+                                        np.float64,
+                                        np.float64,
+                                        npAFloat64,
+                                        npAFloat64], np.float64]
+else:
+    Arrayable = nbType = npAFloat64 = ODEAType = InitialStepFType = None
 # ======================================================================
 def nbAdvanced_ODE_signature(parameters_type: nbType,
                              auxiliary_type: nbType) -> nbSignature:
@@ -49,15 +66,6 @@ def nbAdvanced_initial_step_signature(parameters_type: nbType,
                         nbARO(1),
                         nbARO(1))
 # ======================================================================
-InitialStepFType: TypeAlias = Callable[[ODEAType,
-                                        np.float64,
-                                        npAFloat64,
-                                        Any,
-                                        npAFloat64,
-                                        np.float64,
-                                        np.float64,
-                                        npAFloat64,
-                                        npAFloat64], np.float64]
 def select_initial_step(fun: ODEAType,
                         x0: np.float64,
                         y0: npAFloat64,
@@ -269,16 +277,19 @@ class RKA(FirstSolverBase):
     def state(self) -> tuple[np.float64, npAFloat64, npAFloat64, Any]:
         return self.x, self.y, self.K[0], self.auxiliary
 # ----------------------------------------------------------------------
-AdvancedSolver: TypeAlias = Callable[[ODEAType,
-                                      float,
-                                      Arrayable,
-                                      Any,
-                                      float,
-                                      float,
-                                      Arrayable,
-                                      Arrayable,
-                                      float],
-                                     RKA]
+if TYPE_CHECKING:
+    AdvancedSolver: TypeAlias = Callable[[ODEAType,
+                                        float,
+                                        Arrayable,
+                                        Any,
+                                        float,
+                                        float,
+                                        Arrayable,
+                                        Arrayable,
+                                        float],
+                                        RKA]
+else:
+    AdvancedSolver = None
 # ----------------------------------------------------------------------
 def _Advanced_make_init_RK(parameters_type: nbType,
                            auxiliary_type: nbType):
