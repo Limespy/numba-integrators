@@ -3,23 +3,23 @@ from typing import TYPE_CHECKING
 import numba as nb
 import numpy as np
 
-from .._aux import calc_eps
-from .._aux import calc_error
-from .._aux import calc_tolerance
-from .._aux import convert
-from .._aux import FirstSolverBase
-from .._aux import jitclass_from_dict
-from .._aux import MAX_FACTOR
-from .._aux import MIN_FACTOR
-from .._aux import nbA
-from .._aux import nbARO
-from .._aux import nbSignature
-from .._aux import RK_Params
-from .._aux import SAFETY
-from .._aux import Solver
-from .._aux import step_prep
-from ._first_aux import calc_h0
-from ._first_aux import calc_h_abs
+from ..._aux import calc_eps
+from ..._aux import calc_error
+from ..._aux import calc_tolerance
+from ..._aux import convert
+from ..._aux import FirstSolverBase
+from ..._aux import jitclass_from_dict
+from ..._aux import MAX_FACTOR
+from ..._aux import MIN_FACTOR
+from ..._aux import nbA
+from ..._aux import nbARO
+from ..._aux import nbSignature
+from ..._aux import RK_Params
+from ..._aux import SAFETY
+from ..._aux import Solver
+from ..._aux import step_prep
+from .._e1_aux import calc_h0
+from .._e1_aux import calc_h_abs
 
 # ======================================================================
 if TYPE_CHECKING: # Types
@@ -27,10 +27,10 @@ if TYPE_CHECKING: # Types
     from typing import Any
     from typing import TypeAlias
 
-    from .._aux import ODEA_return
-    from .._aux import Arrayable
-    from .._aux import nbType
-    from .._aux import npAFloat64
+    from ..._aux import ODEA_return
+    from ..._aux import Arrayable
+    from ..._aux import nbType
+    from ..._aux import npAFloat64
 
     ODEAType: TypeAlias = Callable[[np.float64, npAFloat64, Any],
                                 ODEA_return]

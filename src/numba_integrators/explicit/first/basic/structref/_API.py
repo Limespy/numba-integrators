@@ -15,8 +15,8 @@ from .._aux import RK23_params
 from .._aux import RK45_params
 from .._aux import SAFETY
 from .._aux import step_prep
-from ._first_aux import ODE1Type
-from ._first_aux import Solver1
+from ._e1_aux import ODE1Type
+from ._e1_aux import Solver1
 from ._structref_generated import RK
 from .basic import select_initial_step
 # ======================================================================

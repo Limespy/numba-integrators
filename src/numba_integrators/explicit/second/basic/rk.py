@@ -14,11 +14,11 @@ from ..._aux import npAFloat64
 from ..._aux import RK23_params
 from ..._aux import RK45_params
 from ..._aux import SAFETY
-from ._second_basic_aux import nbODE2_type
-from ._second_basic_aux import ODE2Type
-from ._second_basic_aux import SecondBasicSolverBase
-from ._second_basic_aux import select_initial_step
-from ._second_basic_aux import Solver2
+from ._aux_e2b import nbODE2_type
+from ._aux_e2b import ODE2Type
+from ._aux_e2b import SecondBasicSolverBase
+from ._aux_e2b import select_initial_step
+from ._aux_e2b import Solver2
 # ======================================================================
 @nbDecC
 def _step1(fun, x0, y0, h, K, n_stages, A, C):

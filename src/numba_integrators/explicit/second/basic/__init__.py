@@ -1,3 +1,3 @@
 # pylint: disable=duplicate-code
-'''First order integrators'''
+"""Second order basic integrators."""
 from ._API import *

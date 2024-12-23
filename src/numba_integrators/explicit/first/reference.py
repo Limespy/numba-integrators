@@ -13,8 +13,8 @@ from numpy import exp
 from numpy import sin
 
 from .._aux import npAFloat64
-from ._first_aux import nbODE_signature
-from ._first_aux import ODE1Type
+from ._e1_aux import nbODE_signature
+from ._e1_aux import ODE1Type
 # ======================================================================
 # Reference initial value problems
 JIT1 = nb.njit(nbODE_signature)

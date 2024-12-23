@@ -1,5 +1,6 @@
 """Basic RK integrators implemented with numba jitclass."""
-import numba as nb
+from typing import TYPE_CHECKING
+
 import numpy as np
 
 from ..._aux import calc_error
@@ -10,14 +11,19 @@ from ..._aux import nbA
 from ..._aux import nbARO
 from ..._aux import nbDec
 from ..._aux import nbDecC
-from ..._aux import npAFloat64
 from ..._aux import SAFETY
 from .._second_aux import RKNF56_params
-from ._second_basic_aux import nbODE2_type
-from ._second_basic_aux import ODE2Type
-from ._second_basic_aux import SecondBasicSolverBase
-from ._second_basic_aux import select_initial_step
-from ._second_basic_aux import Solver2
+from ._aux_e2b import nbODE2_type
+from ._aux_e2b import SecondBasicSolverBase
+from ._aux_e2b import select_initial_step
+from ._aux_e2b import Solver2
+# ======================================================================
+# Hinting types
+if TYPE_CHECKING:
+    from ._aux_e2b import ODE2Type
+    from ...._types_extra import npAFloat64
+else:
+    ODE2Type = npAFloat64
 # ======================================================================
 def _step(fun, x0, y0, dy0, h, K, n_stages, alpha, beta, gamma):
 

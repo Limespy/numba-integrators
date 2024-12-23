@@ -1,5 +1,5 @@
 # pylint: disable=duplicate-code
-"""Numba integrators."""
+"""First order integrators."""
 from importlib import import_module
 from sys import modules as _modules
 from typing import TYPE_CHECKING
@@ -10,14 +10,13 @@ from ._API import *
 if TYPE_CHECKING:
     from types import ModuleType
 
-    from . import first
-    from . import second
+    from . import advanced
+    from . import basic
 else:
     ModuleType = object
 # ======================================================================
-__version__ = '0.4.1'
 _SELF: ModuleType = _modules[__package__]
-_DYNAMIC_MODULES = ('first', 'second')
+_DYNAMIC_MODULES = ('advanced', 'basic')
 # ----------------------------------------------------------------------
 def __getattr__(name: str) -> ModuleType:
     if name not in _DYNAMIC_MODULES:

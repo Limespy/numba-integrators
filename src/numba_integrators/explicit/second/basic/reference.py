@@ -1,9 +1,8 @@
 """Utilities for testing the package."""
-from collections.abc import Callable
 from dataclasses import dataclass
 from dataclasses import field
-from typing import Any
 from typing import ClassVar
+from typing import TYPE_CHECKING
 
 import numba as nb
 import numpy as np
@@ -11,9 +10,18 @@ from numpy import cos
 from numpy import exp
 from numpy import sin
 
-from ..._aux import npAFloat64
-from ._second_basic_aux import nbODE2_signature
-from ._second_basic_aux import ODE2Type
+from ._aux_e2b import nbODE2_signature
+# ======================================================================
+# Hinting types
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from typing import Any
+
+    from ._aux_e2b import ODE2Type
+    from ...._types_extra import npAFloat64
+else:
+    Callable = tuple
+    Any = ODE2Type = npAFloat64 = object
 # ======================================================================
 # Reference initial value problems
 JIT2 = nb.njit(nbODE2_signature)

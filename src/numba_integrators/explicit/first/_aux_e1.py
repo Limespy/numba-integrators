@@ -3,18 +3,18 @@ from typing import TYPE_CHECKING
 import numba as nb
 import numpy as np
 
-from .._aux import convert
-from .._aux import nbDecFC
-from .._aux import norm
-from .._aux import SolverBase
+from .._aux_e import convert
+from .._aux_e import nb%DecFC
+from .._aux_e import norm
+from .._aux_e import SolverBase
 # ----------------------------------------------------------------------
 if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import TypeAlias
 
-    from .._aux import npAFloat64
-    from .._aux import Arrayable
-    from .._aux import SolverType
+    from ..._types_extra import npAFloat64
+    from ..._types_extra import Arrayable
+    from ..._types_extra import SolverType
 
     ODE1Type: TypeAlias  = Callable[[np.float64, npAFloat64], npAFloat64]
     _InitType: TypeAlias = Callable[[ODE1Type,
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
                                         Arrayable,
                                         float], SolverType]
 else:
-    npAFloat64 = Arrayable = SolverType = ODE1Type = _InitType = None
+    npAFloat64 = Arrayable = SolverType = ODE1Type = _InitType = object
 # ======================================================================
 nbODE_signature = nb.float64[:](nb.float64, nb.float64[:])
 nbODE_type = nbODE_signature.as_type()
@@ -85,5 +85,5 @@ class Solver1:
 class FirstSolverBase(SolverBase):
     # ------------------------------------------------------------------
     @property
-    def dy(self) -> npAFloat64:
-        return self.K[-1]
+    def y(self) -> tuple[npAFloat64, npAFloat64]:
+        return self._y, self.K[-1]

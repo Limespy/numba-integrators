@@ -4,7 +4,7 @@ import numpy as np
 
 @nb.njit(nb.float64[:](nb.float64, nb.float64[:]))
 def f(t, y):
-    '''Differential equation for sine wave'''
+    """Differential equation for sine wave."""
     return np.array((y[1], -y[0]))
 
 y0 = np.array((0., 1.))

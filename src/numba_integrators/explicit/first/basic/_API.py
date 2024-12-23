@@ -1,40 +1,45 @@
 """Basic RK integrators implemented with numba jitclass."""
+from typing import TYPE_CHECKING
+
 import numba as nb
 import numpy as np
 
-from .._aux import Arrayable
-from .._aux import calc_error
-from .._aux import calc_tolerance
-from .._aux import convert
-from .._aux import IS_CACHE
-from .._aux import IterableNamespace
-from .._aux import jitclass_from_dict
-from .._aux import MAX_FACTOR
-from .._aux import MIN_FACTOR
-from .._aux import nbA
-from .._aux import nbARO
-from .._aux import nbDec
-from .._aux import nbDecC
-from .._aux import npAFloat64
-from .._aux import RK23_params
-from .._aux import RK45_params
-from .._aux import RK_Params
-from .._aux import SAFETY
-from ._first_aux import calc_h0
-from ._first_aux import calc_h_abs
-from ._first_aux import FirstSolverBase
-from ._first_aux import nbODE_type
-from ._first_aux import ODE1Type
+from ...._aux import IS_CACHE
+from ...._aux import IterableNamespace
+from ...._aux import MAX_FACTOR
+from ...._aux import MIN_FACTOR
+from ...._aux import nbA
+from ...._aux import nbARO
+from ...._aux import nbDec
+from ...._aux import nbDecC
+from ...._aux import nbDecFC
+from ...._aux import SAFETY
+from ..._aux_e import calc_error
+from ..._aux_e import calc_tolerance
+from ..._aux_e import convert
+from ..._aux_e import jitclass_from_dict
+from ..._aux_e import RK23_params
+from ..._aux_e import RK45_params
+from ..._aux_e import RK_Params
+from .._aux_e1 import calc_h0
+from .._aux_e1 import calc_h_abs
+from .._aux_e1 import FirstSolverBase
+from .._aux_e1 import nbODE_type
+from .._aux_e1 import ODE1Type
 # ======================================================================
-@nbDec(nb.float64(nbODE_type,
+# Hinting types
+if TYPE_CHECKING:
+    from ...._types_extra import Arrayable
+    from ...._types_extra import npAFloat64
+# ======================================================================
+@nbDecFC(nb.float64(nbODE_type,
                     nb.float64,
                     nbA(1),
                     nbA(1),
                     nb.float64,
                     nb.float64,
                     nbARO(1),
-                    nbARO(1)),
-         fastmath = True, cache = IS_CACHE)
+                    nbARO(1)))
 def select_initial_step(fun: ODE1Type,
                         x0: np.float64,
                         y0: npAFloat64,
@@ -135,7 +140,7 @@ def _RK_adaptive_step(fun: ODE1Type,
     return error, x, y, h, nfev
 # ----------------------------------------------------------------------
 @jitclass_from_dict({'fun': nbODE_type})
-class _RK(FirstSolverBase):
+class _RK1(FirstSolverBase):
     """Base class for explicit Runge-Kutta methods."""
 
     def __init__(self,
@@ -198,7 +203,7 @@ class _RK(FirstSolverBase):
     def state(self) -> tuple[np.float64, npAFloat64, npAFloat64]:
         return self.x, self.y, self.K[0]
 # ======================================================================
-@nbDec(cache = False) # Some issue in making caching jitclasses
+@nbDec # Some issue in making caching jitclasses
 def init_RK(fun: ODE1Type,
             x0: np.float64,
             y0: npAFloat64,
@@ -207,8 +212,8 @@ def init_RK(fun: ODE1Type,
             rtol: npAFloat64,
             atol: npAFloat64,
             first_step: np.float64,
-            solver_params: tuple) -> _RK:
-    return _RK(fun, x0, y0, x_bound, max_step, rtol, atol, first_step,
+            solver_params: tuple) -> _RK1:
+    return _RK1(fun, x0, y0, x_bound, max_step, rtol, atol, first_step,
                *solver_params)
 # ----------------------------------------------------------------------
 class RK_Solver:
@@ -241,5 +246,5 @@ class RK45(RK_Solver):
     _solver_params = RK45_params
 # ======================================================================
 class Solvers(IterableNamespace):
-    RK23 = RK23
-    RK45 = RK45
+    RK23: Solver1 = RK23
+    RK45: Solver1 = RK45

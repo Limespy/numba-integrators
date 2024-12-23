@@ -1,4 +1,4 @@
 limedev[test,readme,package] >= 0.6.1
-pre-commit >= 3.2.2
+pre-commit >= 3.2.2, <4
 sympy >= 1.13.1
 tox >= 4.5.1
