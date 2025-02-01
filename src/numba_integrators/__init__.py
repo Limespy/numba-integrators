@@ -16,12 +16,13 @@ else:
     ModuleType = object
 # ======================================================================
 __version__ = '0.4.1'
-_SELF: ModuleType = _modules[__package__]
-_DYNAMIC_MODULES = ('first', 'second')
 # ----------------------------------------------------------------------
 def __getattr__(name: str) -> ModuleType:
-    if name not in _DYNAMIC_MODULES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module = import_module(f'.{name}', __package__)
-    setattr(_SELF, name, module)
-    return module
+    if name in {'first', 'second'}:
+        module = import_module(f'.{name}', __package__)
+        setattr(_modules[__package__], name, module)
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+# ======================================================================
+def main(*_):
+    print(f'Numba Integrators version {__version__}')

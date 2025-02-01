@@ -1,0 +1,7 @@
+[packages]
+required = ['.']
+optional = {}
+
+[subrepos]
+required = {}
+optional = {}

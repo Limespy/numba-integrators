@@ -15,14 +15,13 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 authors = [
     { name = "Limespy" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 readme = "README.md"
 version = "0.3.1"
 dynamic = [

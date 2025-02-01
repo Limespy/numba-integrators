@@ -1,4 +1,6 @@
-limedev >= 0.6.1
-numba >= 0.57.0
-numpy >= 1.24.3, <2
+limedev >= 0.6.2
+numba >= 0.58 ; python_version <= "3.12"
+numba >= 0.61.0 ; python_version >= "3.13"
+numpy >= 1.24,<2 ; python_version <= "3.12"
+numpy >= 2.1 ; python_version >= "3.13"
 scipy >= 1.11.1
