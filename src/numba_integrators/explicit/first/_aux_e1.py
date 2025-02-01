@@ -4,7 +4,7 @@ import numba as nb
 import numpy as np
 
 from .._aux_e import convert
-from .._aux_e import nb%DecFC
+from .._aux_e import nbDecFC
 from .._aux_e import norm
 from .._aux_e import SolverBase
 # ----------------------------------------------------------------------
