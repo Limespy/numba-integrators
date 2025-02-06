@@ -1,6 +1,16 @@
-from limedev.CLI import get_main
 import numpy as np
-import numba as nb
+from limedev.CLI import get_main
+from pade import pade_31
+from pade import pade_32
+from pade import pade_32i
+from pade import pade_40
+from pade import pade_41
+from pade import pade_42
+from pade import pade_42i
+from poly import poly_33i
+from poly import poly_43i
+from poly import poly_44i
+# import numba as nb
 # ======================================================================
 # @nb.njit
 def frange(n: int, dtype: type = np.float64):
@@ -12,10 +22,14 @@ def frange(n: int, dtype: type = np.float64):
         m += _1
     return array
 # ======================================================================
-def _implicit_parameters_construct(n_diffs: int, Dx):
-    length = 2 * n_diffs - 1
-    F = frange(n_diffs)
-    NM = np.zeros((n_diffs, length), dtype = np.float64)
+def erange(n, x):
+    out = np.ones(n)
+    for i in range(1, n):
+        out[i] = out[i - 1] * x
+    return out
+# ======================================================================
+def _construct_NM(n_diffs, length, dtype):
+    NM = np.zeros((n_diffs, length), dtype = dtype)
     NM[0] = 1.
     start_col = 1
     for i_row in range(1, n_diffs):
@@ -25,97 +39,461 @@ def _implicit_parameters_construct(n_diffs: int, Dx):
             NM[i_row, i_col] = NM[i_row - 1, i_col] * m
             m += 1.
         start_col += 1
-    N = NM[:,:n_diffs]
-    M = NM[:,n_diffs:]
-    # X
-    
-    # X
-    X = np.ones(NM.shape)
-    for i_col in range(1, length):
-        X[0, i_col] = X[0, i_col - 1] * Dx
-    for i_row in range(1, n_diffs):
-        X[i_row, i_row + 1:] = X[i_row - 1, i_row:-1]
-    return F, NM, X
+    return NM[:,:n_diffs], NM[:,n_diffs:]
 # ======================================================================
-def _implicit_parameters_diffs(x):
+def _implicit_parameters_construct(n_diffs: int, Dx: float,
+                                   dtype: type = np.float64):
+    length = 2 * n_diffs
+    F = frange(n_diffs)
+    return F, *_construct_NM(n_diffs, length, dtype), erange(length, Dx)
+# ======================================================================
+def function0(x):
     _sin = np.sin(x)
     _cos = np.cos(x)
     return np.array((_sin, _cos, -_sin, -_cos))
 # ======================================================================
-def implicit_parameters():
-    info = ([], [], [])
-    d = 4
-    xa = 1.
-    xb = 1.1
+def matrices():
+    import sympy as sp
+    x = sp.Symbol('x', real = True)
+    X = sp.Matrix(3, 3, lambda i,j: x**i if i == j else 0)
+    IX = sp.Matrix(3, 3, lambda i,j: x**(-i) if i == j else 0)
+
+    A = sp.Matrix(3, 3, lambda i,j: sp.Symbol(f'a{i}{j}', real = True))
+    f = sp.Matrix(3, 1, lambda i,j: sp.Symbol(f'f{i}', real = True))
+    print(X)
+    print(IX)
+    print(A)
+    print(IX * A * X)
+    print(IX * A * X * f)
+# ======================================================================
+def _pade_R(d0: int, dx: int = 0, skip: int = -1):
+    import sympy as sp
+    from math import ceil
+
+    total = d0 + dx
+    if skip >= 0:
+        total -= 1
+    m = total // 2 - 1
+    n = ceil(total / 2.)
+    x = sp.Symbol('x', real = True)
+
+    A = tuple(sp.Symbol(f'a{j}', real = True) for j in range(m+1))
+    B = tuple(sp.Symbol(f'b{k}', real = True) for k in range(1, n+1))
+
+    R = (sum(A[j] * x ** j for j in range(m+1))
+         / (1 + sum(B[k-1] * x ** k for k in range(1, n+1))))
+    Rs = [R]
+    for i in range(1, max(d0, dx)):
+        Rs.append(sp.diff(Rs[i-1], x))
+
+    equations = []
+    F0 = tuple(sp.Symbol(f'f0{i}', real = True) for i in range(d0))
+    for r, f in zip(Rs, F0):
+        equations.append(sp.Equality(f, r.subs(x, 0)))
+    FX = tuple(sp.Symbol(f'fx{i}', real = True) for i in range(dx))
+    for i, (r, f) in enumerate(zip(Rs, FX)):
+        if i != skip:
+            equations.append(sp.Equality(f, r))
+    return x, A, B, F0, FX, equations
+# ======================================================================
+def _print_pade(solutions, params):
+    for solution in solutions:
+        print('\nx2 = x*x\n'
+              'x3 = x2*x\n'
+              'x4 = x3*x\n'
+              'x5 = x4*x\n'
+              'f012 = f01 * f01\n'
+              'f013 = f012 * f01\n'
+              'f014 = f013 * f01\n'
+              'f015 = f014 * f01\n'
+              'f022 = f02 * f02\n'
+              'f023 = f022 * f02\n'
+              'f024 = f023 * f02\n'
+              'f025 = f024 * f02\n'
+              'f032 = f03 * f03\n'
+              'f033 = f032 * f03\n'
+              'f034 = f033 * f03\n'
+              'f035 = f034 * f03\n'
+              'fx02 = fx0 * fx0\n'
+              'fx03 = fx02 * fx0\n'
+              'fx04 = fx03 * fx0\n'
+              'fx05 = fx04 * fx0\n'
+              'fx12 = fx11 * fx1\n'
+              'fx13 = fx12 * fx1\n'
+              'fx14 = fx13 * fx1\n'
+              'fx15 = fx14 * fx1\n'
+              'a0 = f00\n'
+              'a02 = a0*a0\n'
+              'a03 = a02*a0\n'
+              'a04 = a03*a0\n'
+              'a05 = a04*a0\n'
+              )
+        for p, e in zip(params, solution):
+            str_e = str(e
+                ).replace('**2', '2'
+                ).replace('**3', '3'
+                ).replace('**4', '4'
+                ).replace('**5', '5'
+                # ).replace('f01**2', 'f012'
+                # ).replace('f02**2', 'f022'
+                # ).replace('f02**3', 'f023'
+                # ).replace('fx0**2', 'fx02'
+                # ).replace('fx1**2', 'fx12'
+                # ).replace('a0**2', 'a02'
+                # ).replace('a0**3', 'a03'
+                # ).replace('a0**2', 'a02'
+                )
+            print(f'{p} = {str_e}')
+# ======================================================================
+def calc_pade(d0: int = 2, d1: int = 2):
+    import sympy as sp
+    from sympy.solvers.solveset import nonlinsolve
+
+    x, A, B, F0, FX, equations = _pade_R(d0, d1)
+    for eq in equations:
+        print(eq)
+    params = (*A[1:], *B)
+    solutions = nonlinsolve(equations[1:], *params)
+    _print_pade(solutions, params)
+# ======================================================================
+def calc_pade_partial(d0: int = 2, d1: int = 2, skip: int = 0):
+    import sympy as sp
+    from sympy.solvers.solveset import nonlinsolve
+
+    x, A, B, F0, FX, equations = _pade_R(d0, d1, skip = skip)
+    for eq in equations:
+        print(eq)
+    params = (*A[1:], *B)
+    solutions = nonlinsolve(equations[1:], *params)
+    _print_pade(solutions, params)
+# ======================================================================
+def eval_pade(x, a, b):
+    num = a[-1] * x
+    for _a in reversed(a[1:-1]):
+        num += _a
+        num *= x
+    num += a[0]
+
+    den = b[-1] * x
+    for _b in reversed(b[:-1]):
+        den += _b
+        den *= x
+    den += 1.
+    return num / den
+# ======================================================================
+def jacobian():
+    import sympy as sp
+    x = sp.Symbol('x', real = True)
+    y = sp.Matrix(2, 1, lambda i,j: sp.Symbol(f'y{i}{j}', real = True))
+    # A = sp.Matrix(2, 2, lambda i,j: sp.Symbol(f'a{i}{j}', real = True))
+    dy = sp.Matrix(((-y[0, 0]*y[1,0]), (y[0, 0]/y[1,0])))
+    # dy = sp.Matrix(2, 1, lambda i,j: sp.Symbol(f'dy{i}{j}', real = True))
+    J_dy = dy.jacobian(y)
+    print('J_dy\n', J_dy)
+    ddy = J_dy * dy
+    print('ddy\n', ddy)
+    Dy = dy * x + x**2 / 2 * ddy
+    print('Delta y\n', Dy)
+    J_ddy = ddy.jacobian(y)
+    print('J_ddy\n', J_ddy)
+    # print(J_dy*J_dy)
+# ======================================================================
+def eval_poly(x, coeffs):
+    out = x * coeffs[-1]
+    for c in reversed(coeffs[1:-1]):
+        out += c
+        out *= x
+    out += coeffs[0]
+    return out
+# ======================================================================
+def function1(x):
+    _sin = np.sin(x)
+    _cos = np.cos(x)
+    y = 50. * (_sin + 50. * _cos - 50. * np.exp(-50. * x)) / 2501.
+    dy = 50. * (_cos - y)
+    ddy = 50. * (- _sin - dy)
+    dddy = 50. * (- _cos - ddy)
+    return np.array((y, dy, ddy, dddy))
+# ======================================================================
+def function2(x):
+    y = np.exp(-15. * x)
+    dy = -15. * y
+    ddy = -15. * dy
+    dddy = -15. * ddy
+    return np.array((y, dy, ddy, dddy))
+# ======================================================================
+def function3(x):
+    a = 20.
+    exp = np.exp(-a * x)
+    y = 1./(exp + 1.)
+    dy = a * y * y * exp
+    # = a * (2. * y * dy * exp - a * y * y * exp)
+    # = a * y * exp * (2. * dy - a * y)
+    # = a * y * exp * (2. * a * y * y * exp - a * y)
+    # = a * dy * (2 * y * exp - 1)
+    ddy = a * dy * (2. * y * exp - 1)
+    dddy = a * (ddy * (2 * y * exp - 1) + dy * (2. * exp * (dy - a * y)))
+    return np.array((y, dy, ddy, dddy))
+# ======================================================================
+def function4(x):
+    exp_1 = np.exp(-x)
+    exp_1000 = np.exp(-1e3 * x)
+    y = 2. * exp_1 - exp_1000
+    dy = - 2. * exp_1 + 1e3 * exp_1000
+    ddy = 2. * exp_1 - 1e6 * exp_1000
+    dddy = - 2. * exp_1 + 1e9 * exp_1000
+    return np.array((y, dy, ddy, dddy))
+# ======================================================================
+def calc_poly_i(d0: int = 3, dx: int = 3, skip: int = 0):
+    import sympy as sp
+
+    _1 = sp.sympify(1)
+    x = sp.Symbol('Dx', real = True)
+    N_np, M_np = _construct_NM(d0, d0 + dx - 1, np.int32)
+    _M = sp.Matrix(dx, dx - 1, lambda i,j: M_np[i, j])
+    _N = sp.Matrix(dx, d0, lambda i,j: N_np[i, j])
+    X = sp.Matrix(d0, d0, lambda i,j: x**i if i == j else 0)
+    F0 = sp.Matrix(d0, 1, lambda i,j: sp.Symbol(f'F0[{i}]', real = True))
+    FX = sp.Matrix(dx, 1, lambda i,j: sp.Symbol(f'FX[{i}]', real = True))
+    FX.row_del(skip)
+    # _X = sp.Matrix(d - 1, d - 1, lambda i,j: (sp.Symbol(f'_x{i}', real = True)
+    #                                   if i == j else 0))
+    F_np = frange(d0, np.int32)
+    IF = sp.Matrix(d0, d0, lambda i,j: _1 / F_np[i] if i == j else 0)
+    mv = _M[skip, :]
+    nv = _N[skip, :]
+    ixv = 1/x**skip
+    _X = X[:dx, :dx].copy()
+    _X.col_del(skip)
+    _X.row_del(skip)
+    _N.row_del(skip)
+    _M.row_del(skip)
+    IM = _M.inv()
+    # print(IM)
+    # O = (nv - mv * IM * _N) * IF
+
+    # V = IX[:d] * (N - M[:, :-1] @ O) @ (X[:d] * PA)
+    # V = O * (X[:d] * F0)
+    # K = mv * IM
+    # DB_new = d_ixv @ (V + K @ d_X @ _DB)
+    # DB_new = d_ixv @ V + d_ixv @ K @ d_X @ _DB
+    A = (ixv * (nv - mv * IM * _N) * IF * X * F0)
+    B = ixv * mv * IM * _X
+    print('A\n',A)
+    print('B\n',B)
+    DB_new = A + B @ FX
+    print(DB_new[0,0])
+# ======================================================================
+def diff_poly(coeffs):
+    return coeffs[1:] * np.arange(1., len(coeffs), dtype = np.float64)
+# ======================================================================
+def implicit_parameters(example: int = 0):
+    from matplotlib import pyplot as plt
+    inv = np.linalg.inv
+    info: tuple[list[str], list[str], list[str]] = ([], [], [])
+
+    examples = ((function0, -1., 1., 3.,),
+                (function1, -0.05, 0., 0.05,),
+                (function2, -0.05, 0., 0.1,),
+                (function3, -0.05, 0., 0.1,),
+                (function4, -0.002, 0., 0.004,),)
+
+    f, xp, xa, xb = examples[example]
+
+    Dxp = xp - xa
     Dx = xb - xa
-    def rtol(v, ref):
-        return abs(v - ref)
-    DA = _implicit_parameters_diffs(xa)
-    DB = _implicit_parameters_diffs(xb)
+    Dp = f(xp)
+    F0 = f(xa)
+    FX = f(xb)
+    d = len(F0)
+    def err(v, ref):
+        return f'{np.log10(abs(v/ref - 1)):.1f}\t'
 
-    info[2].append('True')
-    info[0].append(DB[0])
-    info[1].append(DB[1])
+    # print('FX\n', FX)
+    F, N, M, X = _implicit_parameters_construct(d, Dx)
 
-    info[2].append('Simple')
-    info[0].append(DA[0] + DA[1]* Dx - DB[0])
-    info[1].append(DA[1] + DA[2] * Dx - DB[1])
 
-    info[2].append('Forward full')
-    info[0].append(DA[0] + DA[1]* Dx + DA[2]/2*Dx**2 + DA[3]/6*Dx**3 - DB[0])
-    info[1].append(DA[1] + DA[2]*Dx + DA[3]/2*Dx**2 - DB[1])
+    # f_pade_22 = pade_22(F0[:2], Dp[:2], Dxp)
+    # f_pade_23 = pade_23(Dp[:2], F0[:3], Dx)
+    f_pade_31 = pade_31(F0[:3], Dp[:1], Dxp)
+    f_pade_32 = pade_32(F0[:3], Dp[:2], Dxp)
+    f_pade_32i = pade_32i(F0[:3], FX[1:2], Dx)
+    f_pade_40 = pade_40(F0[:4], Dp[:0], Dxp)
+    f_pade_41 = pade_41(F0[:4], Dp[:1], Dxp)
+    f_pade_42 = pade_42(F0[:4], Dp[:2], Dxp)
+    f_pade_42i = pade_42i(F0[:4], FX[1:2], Dx)
+    coeffs_40 = F0 / F
+    coeffs_30 = coeffs_40[:3]
+    coeffs_340 = coeffs_40.copy()
+    coeffs_340[3] *= 0.5
+    f_poly_20 = lambda x: eval_poly(x, coeffs_40[:2])
+    f_poly_30 = lambda x: eval_poly(x, coeffs_30)
+    f_poly_340 = lambda x: eval_poly(x, coeffs_340)
+    f_poly_40 = lambda x: eval_poly(x, coeffs_40)
+    # info[2].append('Simple')
+    # info[0].append(err(F0[0] + F0[1]* Dx,
+    #                    FX[0]))
+    # info[1].append(err(F0[1] + F0[2] * Dx,
+    #                    FX[1]))
 
-    info[2].append('Backward full')
-    info[0].append(DA[0] + DB[1]* Dx + DB[2]/2*Dx**2 + DB[3]/6*Dx**3 - DB[0])
-    info[1].append(DA[1] + DB[2]*Dx + DB[3]/2*Dx**2 - DB[1])
+    # info[2].append('Forward')
+    # info[0].append(err(eval_poly(Dx, F0 / F), FX[0]))
+    # info[1].append(err(eval_poly(Dx, F0[1:] / F[:-1]), FX[1]))
 
-    info[2].append('Middle partial')
-    info[0].append(DA[0] + DB[1] * Dx + DB[2]/2*Dx**2 - DB[0])
-    info[1].append(DA[1] + (DA[2] + DB[2])/2 * Dx - DB[1])
 
-    F, NM, X = _implicit_parameters_construct(d, Dx)
-    print('F\n', F)
-    print('NM\n', NM)
-    print('X\n', X)
+    # info[2].append('Backward')
+    # info[0].append(err(F0[0] + FX[1]* Dx + FX[2]/2*Dx*Dx + FX[3]/6*Dx**3,
+    #                    FX[0]))
+    # info[1].append(err(F0[1] + FX[2]*Dx + FX[3]/2*Dx*Dx,
+    #                    FX[1]))
 
-    
-    info[2].append('Poly')
+    # info[2].append('Pade22')
+    # info[0].append(err(f_pade_22(Dx), FX[0]))
+    # info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade31')
+    info[0].append(err(f_pade_31(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade32')
+    info[0].append(err(f_pade_32(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade40')
+    info[0].append(err(f_pade_40(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade41')
+    info[0].append(err(f_pade_41(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade42')
+    info[0].append(err(f_pade_42(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Pade42i')
+    info[0].append(err(f_pade_42i(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Poly33i')
+    _p33i = poly_33i(F0, FX, Dx)
+    info[0].append(err(_p33i[0], FX[0]))
+    info[1].append(err(_p33i[1], FX[1]))
+
+    info[2].append('Poly43i')
+    _p43i = poly_43i(F0, FX, Dx)
+    info[0].append(err(_p43i[0], FX[0]))
+    info[1].append(err(_p43i[1], FX[1]))
+
+    info[2].append('Poly44i')
+    _p44i = poly_44i(F0, FX, Dx)
+    info[0].append(err(_p44i[0], FX[0]))
+    info[1].append(err(_p44i[1], FX[1]))
+
+    # print(poly_43i(F0, FX, Dx) - FX[0])
+    # print(poly_44i(F0, FX, Dx) - FX[0])
+
+    # print('F\n', F)
+    # print('NM\n', NM)
+    # print('X\n', X)
+    F0 = F0.reshape(-1,1)
+    FX = FX.reshape(-1,1)
+    # info[2].append('Poly44i')
+    IF = 1./F.reshape(-1,1)
+    X = X.reshape(-1,1)
+    IX = 1./X
+    coeffs = []
     for v in (0, 1):
-        
-        nv = NM[v, :d]
-        print('nv\n', nv)
-        mv = NM[v,d:]
-        print('mv\n', mv)
-        xv = X[v]
-        print('xv\n', xv)
+        mv = M[:, :-1]
+        nv = N
+        d_ixv = np.diag(IX[:d].flatten())
         # Inverting the rest of the M
-        _NM = np.concatenate((NM[:v], NM[v+1:]))
-        _X = np.concatenate((X[:v], X[v+1:]))
-        _DB = np.concatenate((DB[:v], DB[v+1:]))
+        _N = np.concatenate((N[:v, :], N[v+1:-1, :]))
+        _M = np.concatenate((M[:v, :-2], M[v+1:-1, :-2]))
+        _X = np.vstack((X[:v], X[v+1:-1]))
+        # _IX = np.vstack((IX[:v], IX[v+1:-1]))
+        _DB = np.vstack((FX[:v,:], FX[v+1:-1, :]))
+        # print('_DB\n',_DB)
+
+        # print('IX\n', IX)
+        # _IM = inv(_M)
+        # print('_IM\n', _IM)
+
+        PA = IF * F0
+        # PB = IX[d:] * (inv(M) @ (X[:d] * FX - N @ (X[:d] * PA)))
+        PB = IX[d:-2] * (inv(_M) @ (_X[:d-2] * _DB - _N @ (X[:d] * PA)))
+
+        # DB_new = IX[:d] * (N @ (X[:d] * PA) + M[:, :-1] @ (X[d:-1] * PB))
+        # DB_new = (IX[:d] * N @ (X[:d] * PA)
+        #           + IX[:d] * M[:, :-1] @ (X[d:-1] * PB))
+
+        # H = IX[:d] * N
+        # J =
+        # XPA = X[:d] * PA
+        # DB_new = (H @ (XPA) + J @ inv(_M) @ (_X[:d-1] * _DB - _N @ XPA))
+        # IM = inv(_M)
+        # # K = (ixv * mv) @ IM
+        # # L = K @ _N
+        # # DB_new = (H @ (XPA) + K @ (_X[:d-1] * _DB) - L @ XPA)
+        # # V = (H - L)
+        # dIF = np.diag(IF.flatten())
+        # O = (nv - mv @ IM @ _N) @ dIF
+
+        # # V = IX[:d] * (N - M[:, :-1] @ O) @ (X[:d] * PA)
+        # V = O @ (X[:d] * F0)
+        # K = mv @ IM
+        # d_X = np.diag(_X[:d-1].flatten())
+        # # DB_new = d_ixv @ (V + K @ d_X @ _DB)
+        # # DB_new = d_ixv @ V + d_ixv @ K @ d_X @ _DB
+        # A = d_ixv @ V
+        # B = d_ixv @ K @ d_X
+        # DB_new = A + B @ _DB
+
+        coeffs.append(np.vstack((PA, PB)).flatten())
+
+    x_plot = np.linspace(xp, xb)
+    x_plot_i = np.linspace(xa, xb)
+    Dx_plot = np.linspace(Dxp, Dx)
+    Dx_plot_i = np.linspace(0., Dx)
+
+    y_plot = f(x_plot)
+    print(eval_poly(0., coeffs[0]))
+    plt.plot(x_plot, y_plot[0], label = 'original')
+    plt.plot(x_plot_i, eval_poly(Dx_plot_i, coeffs[0]), label = 'poly43i')
+    # _poly_43i = poly_43i(F0, FX, Dx_plot_i)
+    # plt.plot(x_plot_i, _poly_43i[0], label = 'poly 43i')
+    # _poly_44i = poly_44i(F0, FX, Dx_plot_i)
+    # plt.plot(x_plot_i, _poly_44i[0], label = 'poly 44i')
+    plt.plot(x_plot_i, f_poly_20(Dx_plot_i), label = 'poly 20')
+    plt.plot(x_plot_i, f_poly_30(Dx_plot_i), label = 'poly 30')
+    plt.plot(x_plot_i, f_poly_40(Dx_plot_i), label = 'poly 40')
+    plt.plot(x_plot_i, f_poly_340(Dx_plot_i), label = 'poly 340')
+
+    # y_backward = F0[0] + FX[1]* Dx_plot + FX[2]/2*Dx_plot**2 + FX[3]/6*Dx_plot**3
+    # plt.plot(x_plot, y_backward, label = 'backward')
 
 
-        print('_NM\n', _NM)
-        _N = _NM[:,:d]
-        _M = _NM[:,d:]
-        IX = np.linalg.inv(np.eye(d-1) * _X[:,d:])
-        IX = 1/ np.diag(_X[:,d:])
-        print('IX\n', IX)
-        IM = np.linalg.inv(_M)
-        print('IM\n', IM)
 
-        L = (mv * xv[d:]) * IX @ IM
-        print('L\n', L)
-        K = (nv * xv[:d] - L @ (_N * _X[:,:d])) / F
+    # plt.plot(x_plot, f_pade_22(Dx_plot), label = 'pade 22')
+    # plt.plot(x_plot, f_pade_31(Dx_plot), label = 'pade 31')
+    # plt.plot(x_plot, f_pade_32(Dx_plot), label = 'pade 32')
+    # plt.plot(x_plot, f_pade_23(Dx_plot+Dx), label = 'pade 23')
 
-        print('K\n', K)
+    plt.plot(x_plot_i, f_pade_40(Dx_plot_i), label = 'pade 40')
+    # plt.plot(x_plot, f_pade_41(Dx_plot), label = 'pade 41')
+    plt.plot(x_plot, f_pade_42(Dx_plot), label = 'pade 42')
+    # plt.plot(x_plot, f_pade_32i(Dx_plot), label = 'pade 32i')
+    plt.plot(x_plot_i, f_pade_42i(Dx_plot_i), label = 'pade 42i')
 
-        # print()
-        info[v].append(K @ DA + L @ _DB - DB[v])
-        # print('DB_v\n', DB[v])
-    
+    # plt.ylim(0., 1.)
+    plt.legend()
+
+
     print(*info[2])
     print(*info[0])
     print(*info[1])
+
+    plt.show()
 # ======================================================================
 
 # ======================================================================

@@ -127,7 +127,7 @@ p_0\\
 p_1\\
 p_2\\
 p_3
-\end{bmatrix} = 
+\end{bmatrix} =
 \begin{bmatrix}
 P(0)\\
 P'(0)\\
@@ -137,7 +137,7 @@ P''(0)\\
 p_0\\
 p_1\\
 p_2\\
-\end{bmatrix} = 
+\end{bmatrix} =
 \begin{bmatrix}
 P(0)\\
 P'(0)\\
@@ -154,10 +154,10 @@ p_0\\
 p_1\\
 p_2\\
 p_3 \cdot {\Delta x}\\
-\end{bmatrix} = 
+\end{bmatrix} =
 \begin{bmatrix}
 P''(\Delta x)\\
-\end{bmatrix} 
+\end{bmatrix}
 $$
 
 Combining those two
@@ -214,7 +214,7 @@ $$
         y_{n+1}- (y_n
                   + {y'}_n \cdot {\Delta x}
                   + ({y''}_n / 3 + {y''}_{n+1} / 6) \cdot {\Delta x}^2)\\
-    gdy({y}_{n+1}, {y'}_{n+1}) & = 
+    gdy({y}_{n+1}, {y'}_{n+1}) & =
         {y'}_{n+1} - ({y'}_n + ({y''}_n + {y''}_{n+1}) / 2 \cdot {\Delta x})
 \end{aligned}
 $$
@@ -225,7 +225,7 @@ $$
         y_{n+1}- (y_n
                   + {y'}_n \cdot {\Delta x}
                   + ({y''}_n / 3 + {y''}_{n+1} / 6) \cdot {\Delta x}^2)\\
-    gdy({y}_{n+1}, {y'}_{n+1}) & = 
+    gdy({y}_{n+1}, {y'}_{n+1}) & =
         {y'}_{n+1} - ({y'}_n + ({y''}_n + {y''}_{n+1}) / 2 \cdot {\Delta x})
 \end{aligned}
 $$
@@ -236,7 +236,7 @@ $$
         y_{n+1} - (y_n
                   + {y'}_n \cdot {\Delta x}
                   + ({y''}_n / 3 + {y''}_{n+1} / 6) \cdot {\Delta x}^2)\\
-    gdy({y}_{n+1}, {y'}_{n+1}) & = 
+    gdy({y}_{n+1}, {y'}_{n+1}) & =
         {y'}_{n+1} - ({y'}_n + ({y''}_n + {y''}_{n+1}) / 2 \cdot {\Delta x})
 \end{aligned}
 $$
@@ -355,8 +355,25 @@ $$
 
 $$
 \begin{aligned}
-DB_{v} &= NM_{v,:} \odot X_{v,:d} \cdot P\\
-       &= N_{v,:} \odot X_{v,:d} \cdot PA + M_{v,:} \odot X_{v,d:} \cdot PB
+X &= \R^{2 \cdot d - 1,2 \cdot d - 1}\\
+&=
+    \begin{bmatrix}
+        1 & 0 & 0 & \dots & 0\\
+        0 & x & 0 & \dots & 0\\
+        0 & 0 & x^2 & \dots & 0 \\
+        \vdots & \vdots & \vdots & \ddots & \vdots \\
+        0 & 0 & 0 & \dots & x^{2\cdot d - 2}\\
+    \end{bmatrix}\\
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+X_{:d, :d} \cdot DB
+    &= NM \cdot X \cdot P\\
+DB
+    &= X_{:d, :d}^{-1} \cdot (N \cdot X_{:d,:d} \cdot PA
+                              + M \cdot X_{d:,d:} \cdot PB)
 \end{aligned}
 $$
 
@@ -371,14 +388,25 @@ $$
 
 $$
 \begin{aligned}
-DB_{!v} &= NM_{!v,:} \odot X \cdot P\\
-        &= N_{!v,:} \odot X_{!v,:d} \cdot PA
-           + M_{!v,:} \odot X_{!v,d:} \cdot PB \\
-M_{!v,:} \odot X_{!v,d:} \cdot PB &= DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA \\
-I \odot X_{!v,d:} \cdot PB &= M_{!v,:}^{-1} \cdot (DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA) \\
-PB &=  (I \odot X_{!v,d:})^{-1} \cdot IM \cdot (DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA) \\
-(I \odot X_{!v,d:})^{-1} &= IX\\
-PB &= IX \cdot IM \cdot (DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA) \\
+X_{:d!v,:d} \cdot DB_{!v}
+    &= NM_{!v,:} \cdot X \cdot P\\
+    &= N_{!v,:} \cdot X_{:d,:d} \cdot PA
+       + M_{!v,:} \cdot X_{d:!v,d:} \cdot PB \\
+M_{!v,:} \cdot X_{d:!v,d:} \cdot PB
+    &= X_{:d!v,:d} \cdot DB_{!v}
+       - N_{!v,:} \cdot X_{:d,:d} \cdot PA \\
+X_{d:!v,d:} \cdot PB
+    &= M_{!v,:}^{-1} \cdot (X_{:d!v,:d} \cdot DB_{!v}
+                            - N_{!v,:} \cdot X_{:d,:d} \cdot PA) \\
+M_{!v,:}^{-1}
+    &= IM\\
+PB
+    &=  X_{d:!v,d:}^{-1} \cdot IM \cdot (X_{:d!v,:d} \cdot DB_{!v}
+                                       - N_{!v,:} \cdot X_{:d,:d} \cdot PA) \\
+X_{:d!v,d:}^{-1}
+    &= IX\\
+PB &= IX \cdot IM \cdot (X_{:d!v,:d} \cdot DB_{!v}
+                         - N_{!v,:} \cdot X_{:d,:d} \cdot PA) \\
 \end{aligned}
 $$
 
@@ -386,22 +414,29 @@ Combining
 
 $$
 \begin{aligned}
-DB_{v}
-  &= N_{v,:} \odot X_{v,:d} \cdot PA
-     + M_{v,:} \odot X_{v,d:} \cdot IX \cdot IM \cdot (DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA)\\
-L
-  &= M_{v,:} \odot X_{v,d:} \cdot IX \cdot IM\\
-DB_{v}
-  &= N_{v,:} \odot X_{v,:d} \cdot PA
-     + L \cdot (DB_{!v} - N_{!v,:} \odot X_{!v,:d} \cdot PA)\\
-  &= (N_{v,:} \odot X_{v,:d}
-      - L \cdot N_{!v,:} \odot X_{!v,:d}) \cdot IF \cdot DA
-     + L \cdot DB_{!v}\\
-K
-  &= (N_{v,:} \odot X_{v,:d}
-      - L \cdot N_{!v,:} \odot X_{!v,:d}) \cdot IF\\
-DB_{v}
-  &= K \cdot DA + L \cdot DB_{!v}
+DB
+    &= X_{:d, :d}^{-1} \cdot (N \cdot X_{:d,:d} \cdot PA
+                              + M \cdot X_{d:,d:} \cdot PB)
+X_{:d, :d}^{-1} \cdot N \cdot X_{:d,:d}
+    &= H
+X_{:d, :d}^{-1} \cdot M \cdot X_{d:,d:}
+    &= J
+
+DB
+    &= H \cdot PA + J \cdot PB
+    &= H \cdot PA + J \cdot IX \cdot IM \cdot (X_{:d!v,:d} \cdot DB_{!v}
+                         - N_{!v,:} \cdot X_{:d,:d} \cdot PA)
+J \cdot IX \cdot IM \cdot X_{:d!v,:d}
+    &= K
+J \cdot IX \cdot IM \cdot N_{!v,:} \cdot X_{:d,:d}
+    &= L
+DB
+    &= (H - L ) \cdot PA + L \cdot DB_{!v}
+    &= (H - L ) \cdot IF \cdot DA + L \cdot DB_{!v}
+(H - L ) \cdot IF
+    &= V
+DB
+    &= V \cdot DA + K \cdot DB_{!v}
 \end{aligned}
 $$
 
@@ -410,7 +445,7 @@ $$
 a = 1
 $$
 
-<!-- 
+<!--
 $$
 \begin{aligned}
     N & = \R^{d,d} = \R^{i,j}\\
@@ -422,7 +457,7 @@ $$
     0      & 0      & \dots  & n_{i-1, j-1} \cdot (j - (i-1)) \\
     \end{bmatrix}\\
     M & = \R^{d,d-1} = \R^{i,j}\\
-    & = 
+    & =
     \begin{bmatrix}
     1 = n_{1,1}     & 1      & \dots  & 1                \\
     m_{1, 1} \cdot (d - (2 - 2)) & m_{1, 2} \cdot (d + 1) & \dots  & m_{1, j-1} \cdot (j - 2) \\
@@ -442,15 +477,44 @@ $$
 
 
 $$
-P\Delta X = 
+P\Delta X =
 \begin{bmatrix}
 p_0\\p_1 \cdot \Delta x\\p_2 \cdot {\Delta x}^2\\\vdots\\p_n \cdot {\Delta x}^n
 \end{bmatrix}
 $$
 
 $$
-P\Delta X = 
+P\Delta X =
 \begin{bmatrix}
 p_0\\p_1 \cdot \Delta x\\p_2 \cdot {\Delta x}^2\\\vdots\\p_n \cdot {\Delta x}^n
 \end{bmatrix}
+$$
+
+
+### Padé approximant
+
+$$
+\begin{aligned}
+R(x)
+    &= \frac{\sum_{j=0}^{m}a_j \cdot x^j}{1 + \sum_{k=1}^{n}b_k \cdot x^k}
+\sum_{j=0}^{m}a_j \cdot x^j
+    &= g
+\sum_{k=1}^{n}b_k \cdot x^k
+    &= h
+R(x)
+    &= \frac{g}{h}
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+R(x)
+    &= \frac{g}{h}\\
+D_x^1(R)(x)
+    &= \frac{g' \cdot h - g \cdot h'}{h^2}\\
+D_x^2(R)(x)
+    &= \frac{h^2 \cdot g''
+             - h \cdot (2 \cdot g' \cdot h' + g \cdot h'')
+             + 2 \cdot g \cdot {h'}^2)}{h^3}\\
+\end{aligned}
 $$
