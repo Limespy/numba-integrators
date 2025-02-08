@@ -219,26 +219,28 @@ def calc_poly_i(d0: int = 3, dx: int = 3, skip: int = 0):
     _1 = sp.sympify(1)
     x = sp.Symbol('Dx', real = True)
     N_np, M_np = _construct_NM(d0, d0 + dx - 1, np.int32)
-    _M = sp.Matrix(dx, dx - 1, lambda i,j: M_np[i, j])
+    _M = sp.Matrix(dx, dx - 1- skip, lambda i,j: M_np[i, j])
     _N = sp.Matrix(dx, d0, lambda i,j: N_np[i, j])
     X = sp.Matrix(d0, d0, lambda i,j: x**i if i == j else 0)
     F0 = sp.Matrix(d0, 1, lambda i,j: sp.Symbol(f'F0[{i}]', real = True))
     FX = sp.Matrix(dx, 1, lambda i,j: sp.Symbol(f'FX[{i}]', real = True))
-    FX.row_del(skip)
+    print(FX)
     # _X = sp.Matrix(d - 1, d - 1, lambda i,j: (sp.Symbol(f'_x{i}', real = True)
     #                                   if i == j else 0))
     F_np = frange(d0, np.int32)
     IF = sp.Matrix(d0, d0, lambda i,j: _1 / F_np[i] if i == j else 0)
+
     mv = _M[skip, :]
     nv = _N[skip, :]
     ixv = 1/x**skip
-    _X = X[:dx, :dx].copy()
-    _X.col_del(skip)
-    _X.row_del(skip)
-    _N.row_del(skip)
-    _M.row_del(skip)
+
+    FX = FX[skip+1:,:]
+    _X = X[skip+1:dx,skip+1:dx]
+    _N = _N[skip+1:,:]
+    _M = _M[skip+1:,:]
+    print(FX)
     IM = _M.inv()
-    # print(IM)
+    print(IM)
     # O = (nv - mv * IM * _N) * IF
 
     # V = IX[:d] * (N - M[:, :-1] @ O) @ (X[:d] * PA)
@@ -246,6 +248,8 @@ def calc_poly_i(d0: int = 3, dx: int = 3, skip: int = 0):
     # K = mv * IM
     # DB_new = d_ixv @ (V + K @ d_X @ _DB)
     # DB_new = d_ixv @ V + d_ixv @ K @ d_X @ _DB
+    print(mv)
+    print(_N)
     A = (ixv * (nv - mv * IM * _N) * IF * X * F0)
     B = ixv * mv * IM * _X
     print('A\n',A)
@@ -258,15 +262,15 @@ def diff_poly(coeffs):
 # ======================================================================
 def implicit_parameters(example: int = 0, no_show: bool = False):
     from matplotlib import pyplot as plt
-    from references import function0, function1, function2, function3, function4
+    from references import diffs0, diffs1, diffs2, diffs3, diffs4
     inv = np.linalg.inv
     info: tuple[list[str], list[str], list[str]] = ([], [], [])
 
-    examples = ((function0, -0.5, 0.5, 1.5),
-                (function1, -0.0185, 0., 0.0185),
-                (function2, -0.03, 0., 0.06),
-                (function3, -0.0275, 0., 0.055),
-                (function4, -0.00055, 0., 0.0011),)
+    examples = ((diffs0, -0.5, 0.5, 1.5),
+                (diffs1, -0.0185, 0., 0.0185),
+                (diffs2, -0.03, 0., 0.06),
+                (diffs3, -0.0275, 0., 0.055),
+                (diffs4, -0.00055, 0., 0.0011),)
 
     f, xp, xa, xb = examples[example]
 
@@ -345,8 +349,9 @@ def implicit_parameters(example: int = 0, no_show: bool = False):
     info[1].append(err(0., FX[1]))
 
     info[2].append('Pade42')
-    info[0].append(err(f_pade_42(Dx), FX[0]))
-    info[1].append(err(0., FX[1]))
+    _pade42 = f_pade_42(Dx)
+    info[0].append(err(_pade42[0], FX[0]))
+    info[1].append(err(_pade42[1], FX[1]))
 
     info[2].append('Pade42i')
     info[0].append(err(f_pade_42i(Dx), FX[0]))
@@ -464,7 +469,7 @@ def implicit_parameters(example: int = 0, no_show: bool = False):
 
         plt.plot(x_plot_i, f_pade_40(Dx_plot_i), label = 'pade 40')
         # plt.plot(x_plot, f_pade_41(Dx_plot), label = 'pade 41')
-        plt.plot(x_plot, f_pade_42(Dx_plot), label = 'pade 42')
+        plt.plot(x_plot, f_pade_42(Dx_plot)[0], label = 'pade 42')
         # plt.plot(x_plot, f_pade_32i(Dx_plot), label = 'pade 32i')
         plt.plot(x_plot_i, f_pade_42i(Dx_plot_i), label = 'pade 42i')
 
