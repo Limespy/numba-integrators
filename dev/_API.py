@@ -1,4 +1,5 @@
 import numpy as np
+from implicit import implicit_draft
 from limedev.CLI import get_main
 from pade import pade_31
 from pade import pade_32
@@ -46,11 +47,6 @@ def _implicit_parameters_construct(n_diffs: int, Dx: float,
     length = 2 * n_diffs
     F = frange(n_diffs)
     return F, *_construct_NM(n_diffs, length, dtype), erange(length, Dx)
-# ======================================================================
-def function0(x):
-    _sin = np.sin(x)
-    _cos = np.cos(x)
-    return np.array((_sin, _cos, -_sin, -_cos))
 # ======================================================================
 def matrices():
     import sympy as sp
@@ -156,6 +152,17 @@ def calc_pade(d0: int = 2, d1: int = 2):
     solutions = nonlinsolve(equations[1:], *params)
     _print_pade(solutions, params)
 # ======================================================================
+def diff_pade(m: int, n: int):
+    import sympy as sp
+
+    x = sp.Symbol('Dx', real = True)
+    A = tuple(sp.Symbol(f'a{j}', real = True) for j in range(m+1))
+    B = tuple(sp.Symbol(f'b{k}', real = True) for k in range(1, n+1))
+    R = (sum(A[j] * x ** j for j in range(m+1))
+         / (1 + sum(B[k-1] * x ** k for k in range(1, n+1))))
+    print(R)
+    print(sp.diff(R, x))
+# ======================================================================
 def calc_pade_partial(d0: int = 2, d1: int = 2, skip: int = 0):
     import sympy as sp
     from sympy.solvers.solveset import nonlinsolve
@@ -206,44 +213,6 @@ def eval_poly(x, coeffs):
     out += coeffs[0]
     return out
 # ======================================================================
-def function1(x):
-    _sin = np.sin(x)
-    _cos = np.cos(x)
-    y = 50. * (_sin + 50. * _cos - 50. * np.exp(-50. * x)) / 2501.
-    dy = 50. * (_cos - y)
-    ddy = 50. * (- _sin - dy)
-    dddy = 50. * (- _cos - ddy)
-    return np.array((y, dy, ddy, dddy))
-# ======================================================================
-def function2(x):
-    y = np.exp(-15. * x)
-    dy = -15. * y
-    ddy = -15. * dy
-    dddy = -15. * ddy
-    return np.array((y, dy, ddy, dddy))
-# ======================================================================
-def function3(x):
-    a = 20.
-    exp = np.exp(-a * x)
-    y = 1./(exp + 1.)
-    dy = a * y * y * exp
-    # = a * (2. * y * dy * exp - a * y * y * exp)
-    # = a * y * exp * (2. * dy - a * y)
-    # = a * y * exp * (2. * a * y * y * exp - a * y)
-    # = a * dy * (2 * y * exp - 1)
-    ddy = a * dy * (2. * y * exp - 1)
-    dddy = a * (ddy * (2 * y * exp - 1) + dy * (2. * exp * (dy - a * y)))
-    return np.array((y, dy, ddy, dddy))
-# ======================================================================
-def function4(x):
-    exp_1 = np.exp(-x)
-    exp_1000 = np.exp(-1e3 * x)
-    y = 2. * exp_1 - exp_1000
-    dy = - 2. * exp_1 + 1e3 * exp_1000
-    ddy = 2. * exp_1 - 1e6 * exp_1000
-    dddy = - 2. * exp_1 + 1e9 * exp_1000
-    return np.array((y, dy, ddy, dddy))
-# ======================================================================
 def calc_poly_i(d0: int = 3, dx: int = 3, skip: int = 0):
     import sympy as sp
 
@@ -287,16 +256,17 @@ def calc_poly_i(d0: int = 3, dx: int = 3, skip: int = 0):
 def diff_poly(coeffs):
     return coeffs[1:] * np.arange(1., len(coeffs), dtype = np.float64)
 # ======================================================================
-def implicit_parameters(example: int = 0):
+def implicit_parameters(example: int = 0, no_show: bool = False):
     from matplotlib import pyplot as plt
+    from references import function0, function1, function2, function3, function4
     inv = np.linalg.inv
     info: tuple[list[str], list[str], list[str]] = ([], [], [])
 
-    examples = ((function0, -1., 1., 3.,),
-                (function1, -0.05, 0., 0.05,),
-                (function2, -0.05, 0., 0.1,),
-                (function3, -0.05, 0., 0.1,),
-                (function4, -0.002, 0., 0.004,),)
+    examples = ((function0, -0.5, 0.5, 1.5),
+                (function1, -0.0185, 0., 0.0185),
+                (function2, -0.03, 0., 0.06),
+                (function3, -0.0275, 0., 0.055),
+                (function4, -0.00055, 0., 0.0011),)
 
     f, xp, xa, xb = examples[example]
 
@@ -307,11 +277,10 @@ def implicit_parameters(example: int = 0):
     FX = f(xb)
     d = len(F0)
     def err(v, ref):
-        return f'{np.log10(abs(v/ref - 1)):.1f}\t'
+        return f'{np.log10(abs(v/ref - 1)):.1f}'
 
     # print('FX\n', FX)
     F, N, M, X = _implicit_parameters_construct(d, Dx)
-
 
     # f_pade_22 = pade_22(F0[:2], Dp[:2], Dxp)
     # f_pade_23 = pade_23(Dp[:2], F0[:3], Dx)
@@ -350,6 +319,14 @@ def implicit_parameters(example: int = 0):
     # info[2].append('Pade22')
     # info[0].append(err(f_pade_22(Dx), FX[0]))
     # info[1].append(err(0., FX[1]))
+
+    info[2].append('Poly30')
+    info[0].append(err(f_poly_30(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
+
+    info[2].append('Poly40')
+    info[0].append(err(f_poly_40(Dx), FX[0]))
+    info[1].append(err(0., FX[1]))
 
     info[2].append('Pade31')
     info[0].append(err(f_pade_31(Dx), FX[0]))
@@ -456,44 +433,44 @@ def implicit_parameters(example: int = 0):
     Dx_plot = np.linspace(Dxp, Dx)
     Dx_plot_i = np.linspace(0., Dx)
 
-    y_plot = f(x_plot)
-    print(eval_poly(0., coeffs[0]))
-    plt.plot(x_plot, y_plot[0], label = 'original')
-    plt.plot(x_plot_i, eval_poly(Dx_plot_i, coeffs[0]), label = 'poly43i')
-    # _poly_43i = poly_43i(F0, FX, Dx_plot_i)
-    # plt.plot(x_plot_i, _poly_43i[0], label = 'poly 43i')
-    # _poly_44i = poly_44i(F0, FX, Dx_plot_i)
-    # plt.plot(x_plot_i, _poly_44i[0], label = 'poly 44i')
-    plt.plot(x_plot_i, f_poly_20(Dx_plot_i), label = 'poly 20')
-    plt.plot(x_plot_i, f_poly_30(Dx_plot_i), label = 'poly 30')
-    plt.plot(x_plot_i, f_poly_40(Dx_plot_i), label = 'poly 40')
-    plt.plot(x_plot_i, f_poly_340(Dx_plot_i), label = 'poly 340')
-
-    # y_backward = F0[0] + FX[1]* Dx_plot + FX[2]/2*Dx_plot**2 + FX[3]/6*Dx_plot**3
-    # plt.plot(x_plot, y_backward, label = 'backward')
-
-
-
-    # plt.plot(x_plot, f_pade_22(Dx_plot), label = 'pade 22')
-    # plt.plot(x_plot, f_pade_31(Dx_plot), label = 'pade 31')
-    # plt.plot(x_plot, f_pade_32(Dx_plot), label = 'pade 32')
-    # plt.plot(x_plot, f_pade_23(Dx_plot+Dx), label = 'pade 23')
-
-    plt.plot(x_plot_i, f_pade_40(Dx_plot_i), label = 'pade 40')
-    # plt.plot(x_plot, f_pade_41(Dx_plot), label = 'pade 41')
-    plt.plot(x_plot, f_pade_42(Dx_plot), label = 'pade 42')
-    # plt.plot(x_plot, f_pade_32i(Dx_plot), label = 'pade 32i')
-    plt.plot(x_plot_i, f_pade_42i(Dx_plot_i), label = 'pade 42i')
-
-    # plt.ylim(0., 1.)
-    plt.legend()
-
-
+    lengths = tuple(len(h) for h in info[2])
     print(*info[2])
-    print(*info[0])
-    print(*info[1])
+    print(*(f'{v:^{l}}' for v, l in zip(info[0], lengths)))
+    print(*(f'{v:^{l}}' for v, l in zip(info[1], lengths)))
 
-    plt.show()
+    if not no_show:
+        y_plot = f(x_plot)
+        # print(eval_poly(0., coeffs[0]))
+        plt.plot(x_plot, y_plot[0], label = 'original')
+        plt.plot(x_plot_i, eval_poly(Dx_plot_i, coeffs[0]), label = 'poly43i')
+        # _poly_43i = poly_43i(F0, FX, Dx_plot_i)
+        # plt.plot(x_plot_i, _poly_43i[0], label = 'poly 43i')
+        # _poly_44i = poly_44i(F0, FX, Dx_plot_i)
+        # plt.plot(x_plot_i, _poly_44i[0], label = 'poly 44i')
+        plt.plot(x_plot_i, f_poly_20(Dx_plot_i), label = 'poly 20')
+        plt.plot(x_plot_i, f_poly_30(Dx_plot_i), label = 'poly 30')
+        plt.plot(x_plot_i, f_poly_40(Dx_plot_i), label = 'poly 40')
+        plt.plot(x_plot_i, f_poly_340(Dx_plot_i), label = 'poly 340')
+
+        # y_backward = F0[0] + FX[1]* Dx_plot + FX[2]/2*Dx_plot**2 + FX[3]/6*Dx_plot**3
+        # plt.plot(x_plot, y_backward, label = 'backward')
+
+
+
+        # plt.plot(x_plot, f_pade_22(Dx_plot), label = 'pade 22')
+        # plt.plot(x_plot, f_pade_31(Dx_plot), label = 'pade 31')
+        # plt.plot(x_plot, f_pade_32(Dx_plot), label = 'pade 32')
+        # plt.plot(x_plot, f_pade_23(Dx_plot+Dx), label = 'pade 23')
+
+        plt.plot(x_plot_i, f_pade_40(Dx_plot_i), label = 'pade 40')
+        # plt.plot(x_plot, f_pade_41(Dx_plot), label = 'pade 41')
+        plt.plot(x_plot, f_pade_42(Dx_plot), label = 'pade 42')
+        # plt.plot(x_plot, f_pade_32i(Dx_plot), label = 'pade 32i')
+        plt.plot(x_plot_i, f_pade_42i(Dx_plot_i), label = 'pade 42i')
+
+        # plt.ylim(0., 1.)
+        plt.legend()
+        plt.show()
 # ======================================================================
 
 # ======================================================================
