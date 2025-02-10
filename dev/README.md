@@ -1,5 +1,57 @@
 # Implicit solvers, second order
 
+## Algorithm
+
+1. Estimate x step length
+2. Try x step
+   1. Make y and dy estimate
+   2. calculate internal error
+      1. calculate ddy
+      2. calculate internal y and dy
+      3. calculate difference
+   3. Compare error to internal tolerances
+      - If under, break to x loop
+   4. Calculate error jacobian
+      - Full version
+        1. Calculate function jacobian
+        2. Calculate error jacobian
+        3. Do LU decomposition
+      - Approximate version
+        1. Solve mixed $a_m$ from $ L_{n-1} \cdot U_{n-1} \cdot a_m =  e_n $
+        2. a
+   5. Take y step
+      - Simple: single step
+      - Complex: line search
+        1. multiplier 1
+        2. calculate y and dy
+        3. calculate internal error
+           1. calculate ddy
+           2. calculate internal y and dy
+           3. calculate difference
+        4. set smaller of the two error to be the minimum
+        5. Error comparisons
+           1. Compare the new internal error to the internal tolerances
+              - If under, break to x loop returning the minimum case
+           2. Compare difference of old new internal error to line search tolerances
+              - If under, break to y loop returning the minimum case
+        6. Calculate next multiplier
+           - Using secant method
+        7. calculate internal error
+        8. Compare the error to minimum
+            - If under, set as the new minimum
+            - If over, set as the right side value
+        9.  error comparisons
+        10.
+3. Estimate total error
+4. Compare error to tolerances
+   - If within tolerances
+     1. Increase step estimate
+     2. Move to next step
+   - If outside tolerances
+     1. Decrease step estimate
+     2. Try x step again
+
+
 ## Solving
 
 ### Backwards differentiation
@@ -516,5 +568,88 @@ D_x^2(R)(x)
     &= \frac{h^2 \cdot g''
              - h \cdot (2 \cdot g' \cdot h' + g \cdot h'')
              + 2 \cdot g \cdot {h'}^2)}{h^3}\\
+\end{aligned}
+$$
+
+## Broyden's method
+
+### Good Broyden's method
+
+$$
+\begin{aligned}
+J_n^{-1}
+    &= J_{n-1}^{-1}
+       + \frac{\Delta y_n - J_{n-1}^{-1} \cdot \Delta e}
+              {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta e}
+         \cdot \Delta y_n^T \cdot J_{n-1}^{-1}\\
+    &= (I
+       + \frac{\Delta y_n - J_{n-1}^{-1} \cdot \Delta e}
+              {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta e}
+         \cdot \Delta y_n^T) \cdot J_{n-1}^{-1}\\
+\Delta e
+    &= e_n - e_{n-1}\\
+a_n
+    &= J_n^{-1} \cdot e_n\\
+    &= (I
+       + \frac{\Delta y_n - J_{n-1}^{-1} \cdot (e_n - e_{n-1})}
+              {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot (e_n - e_{n-1})}
+         \cdot \Delta y_n^T) \cdot J_{n-1}^{-1}\cdot e_n\\
+J_{n-1}^{-1} \cdot e_n
+    &= a_{n-1/2}\\
+J_{n-1}^{-1} \cdot e_{n-1}
+    &= a_{n-1}\\
+a_n
+    &= (I
+       + \frac{\Delta y_n - (a_{n-1/2} - a_{n-1})}
+              {\Delta y_n^T \cdot (a_{n-1/2} - a_{n-1})}
+         \cdot \Delta y_n^T) \cdot a_{n-1/2}\\
+\end{aligned}
+$$
+
+## Quadratic secant
+
+$$
+\begin{aligned}
+P(x)
+    &= p_0 + p_1 \cdot x + p_2 \cdot x^2\\
+P'(x_0)
+    &= p_1 + 2 \cdot p_2 \cdot x_0 = 0\\
+x_0
+    &= p_1 / (2 \cdot p_2)\\
+P(x_1)
+    &= e_1\\
+P(x_2)
+    &= e_2\\
+P(x_3)
+    &= e_3\\
+P(x_2) - P(x_1)
+    &= \Delta P_{21}\\
+    &= p_1 \cdot (x_2 - x_1) + p_2 \cdot (x_2^2 - x_1^2)\\
+(x_2 - x_1)
+    &= \Delta x_{21} \\
+(x_2^2 - x_1^2)
+    &=  \Delta x^2_{21}\\
+\Delta P_{21}
+    &= p_1 \cdot \Delta x_{21} + p_2 \cdot \Delta x^2_{21}\\
+P(x_3) - P(x_1)
+    &= \Delta P_{31}\\
+    &= p_1 \cdot (x_3 - x_1) + p_2 \cdot (x_3^2 - x_1^2)\\
+(x_3 - x_1)
+    &= \Delta x_{31} \\
+(x_3^2 - x_1^2)
+    &=  \Delta x^2_{31}\\
+\Delta P_{31}
+    &= p_1 \cdot \Delta x_{31} + p_2 \cdot \Delta x^2_{31}\\
+\frac{\Delta P_{21}}{\Delta P_{31}}
+    &= R\\
+    &= \frac{p_1 \cdot \Delta x_{21} + p_2 \cdot \Delta x^2_{21}}
+            {p_1 \cdot \Delta x_{31} + p_2 \cdot \Delta x^2_{31}}\\
+    &= \frac{(p_1 / (2 \cdot p_2)) \cdot \Delta x_{21} + \Delta x^2_{21} / 2\\}
+            {(p_1 / (2 \cdot p_2)) \cdot \Delta x_{31} + \Delta x^2_{31}/ 2}\\
+    &= \frac{x_0 \cdot \Delta x_{21} + \Delta x^2_{21} / 2\\}
+            {x_0 \cdot \Delta x_{31} + \Delta x^2_{31}/ 2}\\
+x_0
+    &=  \frac{\Delta x^2_{21} - R \cdot \Delta x^2_{31}\\}
+            {2 \cdot (R \cdot \Delta x_{31} - \Delta x_{21})}\\
 \end{aligned}
 $$
