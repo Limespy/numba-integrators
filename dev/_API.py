@@ -487,6 +487,53 @@ def implicit_parameters(example: int = 0, no_show: bool = False):
         plt.legend()
         plt.show()
 # ======================================================================
+def minimiser():
+    from matplotlib import pyplot as plt
 
+    def function2min(x):
+        return x + np.exp(x) + np.exp(-x)
+    def D_function2min(x):
+        return 1. + np.exp(x) - np.exp(-x)
+
+    plt.ion()
+    x_plot = np.linspace(-2., 2.)
+    y_plot = function2min(x_plot)
+    plt.plot(x_plot, y_plot, label = 'function')
+
+    x_1 = 2.
+    e2_1 = function2min(x_1)
+    x_2 = x_1 - e2_1 / D_function2min(x_1)
+    e2_2 = function2min(x_2)
+
+    plt.plot(x_1, e2_1, '.', label = '0')
+    plt.plot((x_2, x_1), (0., e2_1))
+    plt.plot(x_2, e2_2, '.', label = '1')
+    plt.grid()
+    plt.legend()
+    input()
+    for i in range(2, 8):
+        De2_2 = D_function2min(x_2)
+        print(e2_1 / e2_2 - 1.)
+        Rp = (e2_2 - e2_1) / De2_2
+        # Debugging
+        # p0 = e2_2
+        # p1 = De2_2
+        # p2 = (e2_1 - p0 - p1 * (x_1 - x_2))/(x_1 - x_2)**2
+        # Dx = x_plot - x_2
+        # plt.plot(x_plot, p0 + p1 * Dx + p2 * Dx*Dx)
+
+
+        x_1, x_2 = x_2, ((x_2*x_2 - x_1 * x_1) * 0.5 - Rp * x_2)/(x_2 - x_1 - Rp)
+        # print(e2_1 / e2_2 - 1.)
+        e2_1 = e2_2
+        e2_2 = function2min(x_2)
+        plt.plot(x_2, e2_2, '.', label = str(i))
+        plt.legend()
+        input()
+
+    plt.legend()
+    plt.show()
+
+    input()
 # ======================================================================
 main = get_main(__name__)

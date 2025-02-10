@@ -38,10 +38,10 @@
            - Using secant method
         7. calculate internal error
         8. Compare the error to minimum
-            - If under, set as the new minimum
-            - If over, set as the right side value
-        9.  error comparisons
-        10.
+            - If under, set y, dy and error as the new minimum state
+        9. error comparisons
+        10. calculate next multiplier
+            - quadratic secant from three points
 3. Estimate total error
 4. Compare error to tolerances
    - If within tolerances
@@ -606,7 +606,9 @@ a_n
 \end{aligned}
 $$
 
-## Quadratic secant
+## Line search
+
+### Quadratic secant
 
 $$
 \begin{aligned}
@@ -651,5 +653,88 @@ P(x_3) - P(x_1)
 x_0
     &=  \frac{\Delta x^2_{21} - R \cdot \Delta x^2_{31}\\}
             {2 \cdot (R \cdot \Delta x_{31} - \Delta x_{21})}\\
+\end{aligned}
+$$
+
+### Quadratic from differential
+
+#### Differential
+
+$$
+\begin{aligned}
+E_n(\alpha)
+    &= e_n^T \cdot e_n\\
+e_n
+    &= Y_n - P(Dx, Y_n, ddy(x, Y_n))\\
+Y_n
+    &= Y_{n-1} - \alpha \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
+\end{aligned}
+$$
+
+Solving for
+
+$$
+E_m = e_0^2 + e_1^2+ \dots + e_k^2
+D_x(E_m) = 2 \cdot e_0 * D_x(e_0) + 2 \cdot e_0 * D_x(e_0) + \dots + 2 \cdot e_k * D_x(e_k)
+D_x(E_m) = 2 \cdot e^T \cdot D_x(e)
+
+$$
+
+$$
+\begin{aligned}
+D_\alpha (E_n(\alpha))
+    &=
+    &= 0\\
+    &= 2 \cdot e_n(\alpha) \cdot D_\alpha(e_n(\alpha))
+    &= 2 \cdot e_n(\alpha) \cdot (D_\alpha(Y_n) + D_\alpha(P(Dx, Y_n, ddy(x, Y_n))))\\
+D_\alpha(Y_n)
+    &= - J_{n-1}^{-1} \cdot e_{n-1}\\
+D_\alpha(P(Dx, Y_n, ddy(x, Y_n)))
+    & = D_Y(P) \cdot D_\alpha(Y_n) + D_{ddy}(P)\cdot D_{Y_n}(ddy) \cdot D_\alpha(Y_n)\\
+D_{Y_n}(ddy)
+    &= J(ddy)\\
+D_\alpha (e_n^2)
+    & = - 2 \cdot e_n(\alpha)
+        \cdot (I + D_Y(P) + D_{ddy}(P) \cdot J(ddy)) \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
+\end{aligned}
+$$
+
+#### next $\alpha$
+
+$$
+\begin{aligned}
+P(x)
+    &= p_0 + p_1 \cdot x + p_2 \cdot x^2\\
+P'(x_0)
+    &= p_1 + 2 \cdot p_2 \cdot x_0 = 0\\
+x_0
+    &= -p_1 / (2 \cdot p_2)\\
+P(x_1)
+    &= e_1^2\\
+P(x_2)
+    &= e_2^2\\
+P'(x_2)
+    &= D_\alpha(e_2^2)\\
+P(x_2) - P(x_1)
+    &= \Delta P_{21}\\
+    &= p_1 \cdot (x_2 - x_1) + p_2 \cdot (x_2^2 - x_1^2)\\
+P'(x_2)
+    &= p_1 + 2 \cdot p_2 \cdot x_2\\
+\frac{\Delta P_{21}}{P'(x_2)}
+    &= R'\\
+    &= \frac{e_n^2 - e_{n-1}^2}{e_n^2}\\
+    &= \frac{p_1 \cdot (x_2 - x_1) + p_2 \cdot (x_2^2 - x_1^2)}
+            {p_1 + 2 \cdot p_2 \cdot x_2}\\
+    &= \frac{x_0 \cdot (x_2 - x_1) - (x_2^2 - x_1^2) / 2}
+            {x_0 - x_2}\\
+x_0
+    &= \frac{(x_2^2 - x_1^2)/2 - R' \cdot x_2}
+            {x_2 - x_1 -R'}\\
+\end{aligned}
+\rightsquigarrow
+\begin{aligned}
+\alpha_{n+1}
+    &= \frac{(\alpha_m^2 - \alpha_{m-1}^2)/2 - R' \cdot \alpha_m}
+            {R' - \alpha_m + \alpha_{m-1}}
 \end{aligned}
 $$

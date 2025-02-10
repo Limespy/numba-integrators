@@ -2,6 +2,23 @@ from collections.abc import Callable
 
 import numpy as np
 # ======================================================================
+def minimise[T](x1: float, e1: float,
+             f: Callable[[float], tuple[float, T]],
+             df: Callable[[float], float],
+             tol: float) -> tuple[float, T]:
+    x2 = x1 - e1 / df(x1)
+    e2, out = f(x2)
+    Delta_e = (e2 - e1)
+
+    while Delta_e / e2 > tol:
+        Rp = Delta_e / df(x2)
+        x1, x2 = x2, ((x2 * x2 - x1 * x1) * 0.5 - Rp * x2)/(x2 - x1 - Rp)
+
+        e1 = e2
+        e2, out = f(x2)
+        Delta_e = (e2 - e1)
+    return e2, out
+# ======================================================================
 def newton_step(Dx, xi, y, dy, err, f_jac_f: Callable, f_jac_g: Callable):
     n = len(y)
     jac_ddy = f_jac_f(xi, y, dy)
