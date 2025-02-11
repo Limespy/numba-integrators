@@ -680,25 +680,37 @@ D_x(E_m) = 2 \cdot e^T \cdot D_x(e)
 
 $$
 
+First derivative
+
 $$
 \begin{aligned}
 D_\alpha (E_n(\alpha))
-    &=
-    &= 0\\
-    &= 2 \cdot e_n(\alpha) \cdot D_\alpha(e_n(\alpha))
-    &= 2 \cdot e_n(\alpha) \cdot (D_\alpha(Y_n) + D_\alpha(P(Dx, Y_n, ddy(x, Y_n))))\\
+    &= 2 \cdot e_n^T \cdot D_\alpha(e_n)\\
+D_\alpha(e_n)
+    &= D_\alpha(Y_n) - D_\alpha(P)\\
 D_\alpha(Y_n)
     &= - J_{n-1}^{-1} \cdot e_{n-1}\\
-D_\alpha(P(Dx, Y_n, ddy(x, Y_n)))
-    & = D_Y(P) \cdot D_\alpha(Y_n) + D_{ddy}(P)\cdot D_{Y_n}(ddy) \cdot D_\alpha(Y_n)\\
+D_\alpha(P)
+    &= (D_Y(P) + D_{ddy}(P) \cdot D_{Y_n}(ddy))\cdot D_\alpha(Y_n)\\
 D_{Y_n}(ddy)
-    &= J(ddy)\\
-D_\alpha (e_n^2)
-    & = - 2 \cdot e_n(\alpha)
-        \cdot (I + D_Y(P) + D_{ddy}(P) \cdot J(ddy)) \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
+    &= J_{ddy,n-1}\\
+D_\alpha(e_n)
+    & = (I + D_Y(P) + D_{ddy}(P) \cdot J(ddy)) \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
 \end{aligned}
 $$
 
+Second derivative
+
+$$
+\begin{aligned}
+D_\alpha^2 (E_n(\alpha))
+    &= 2 \cdot (D_\alpha(e_n)^T \cdot D_\alpha(e_n)
+                + e_n^T \cdot D_\alpha^2(e_n))\\
+D_\alpha^2(e_n)
+    &= D_\alpha((I + D_Y(P) + D_{ddy}(P) \cdot J(ddy, n-1)) \cdot J_{n-1}^{-1} \cdot e_{n-1})\\
+    &= D_\alpha((D_Y^2(P) + D_{ddy}^2(P) \cdot J(ddy, n-1)) \cdot J_{n-1}^{-1} \cdot e_{n-1})\\
+\end{aligned}
+$$
 #### next $\alpha$
 
 $$

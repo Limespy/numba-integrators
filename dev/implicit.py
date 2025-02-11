@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 # ======================================================================
@@ -29,6 +30,7 @@ def newton_step(Dx, xi, y, dy, err, f_jac_f: Callable, f_jac_g: Callable):
     # Solve error diffs step
     a = -np.linalg.solve(jac_g, err)
     return a[:n], a[n:]
+
 # ======================================================================
 def secant_step(y1, y2, dy1, dy2, err1, err2):
     n = len(y2)
@@ -178,6 +180,13 @@ def fixed_secant(Dx, xi, y_e, dy_e,
         iterations += 1
     print(iterations)
     return y2, dy2, ddy
+# ======================================================================
+def error2(Y, P) -> tuple[float, float, float, Any]:
+    error = Y - P
+    error2 = error*error
+    d_error2 = error
+    dd_error2 = error
+    return error2, d_error2, dd_error2, Y
 # ======================================================================
 def implicit_draft(example: int = 0, no_show: bool = False, step: str = '13i'):
     from references import diffs0, diffs1, diffs2, diffs3, diffs4
