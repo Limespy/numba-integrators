@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from typing import Any
     from typing import TypeAlias
 
-    from ._types_extra import nbType
-    from ._types_extra import npAFloat64
+    from ._types import nbType
+    from ._types import npAFloat64
 else:
     Any = TypeAlias = npAFloat64 = nbType = object
 # ----------------------------------------------------------------------

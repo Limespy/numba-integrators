@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import TypeAlias
 
-    from ..._types_extra import npAFloat64
-    from ..._types_extra import Arrayable
-    from ..._types_extra import SolverType
+    from ..._types import npAFloat64
+    from ..._types import Arrayable
+    from ..._types import SolverType
 
     ODE1Type: TypeAlias  = Callable[[np.float64, npAFloat64], npAFloat64]
     _InitType: TypeAlias = Callable[[ODE1Type,

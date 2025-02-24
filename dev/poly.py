@@ -1,4 +1,7 @@
+from typing import Literal as L
+
 import numpy as np
+from numba_integrators._lnumpy import F64Array
 # ======================================================================
 def poly_13i(F0, FX, Dx):
     return (F0[0] + FX[1] * Dx + 0.5 * Dx * Dx * FX[2]
@@ -23,21 +26,58 @@ def jac_13i(Dx, Jddy):
     return Jg
 # ======================================================================
 def poly_33i(F0, FX, Dx):
+
     return (Dx**2*F0[2]/6 + 2*Dx*F0[1]/3 + Dx*FX[1]/3 + F0[0]
             ,
             -Dx*F0[2]/6 + Dx*FX[2]/6 - F0[1] - 2*F0[0]/Dx + 2*FX[0]/Dx
             )
 # ======================================================================
+def poly_33i_prepare[Vars: F64Array[int]](F0: tuple[Vars, Vars, Vars, Vars],
+                                          Dx: float,
+                                          A_out: F64Array[int, int],
+                                          B_out: F64Array[L[2],L[2]]) -> None:
+    y0, dy0, ddy0 = F0
+    n = len(y0)
+
+
+    A_out[:n] = Dx**2*ddy0/6 + 2*Dx*dy0/3 + y0
+    A_out[n:] = -Dx*ddy0/6 - dy0 - 2*y0/Dx
+
+    # B_Y_y_out[:n] = 0.
+    B_out[0,0] = Dx / 3.
+    # B_out[0,1] = 0.
+
+    # B_Y_y_out[:n] = 0.
+    B_out[1,0] = 2. / Dx
+    B_out[1,1] = Dx / 6.
+
+# ======================================================================
+def poly_33i_finish[Vars: F64Array[int],
+                    Vars2: F64Array[int]](Y: Vars2,
+                                          ddy: Vars,
+                                          A: Vars2,
+                                          B: F64Array[L[2], L[2]],
+                                          Y_out: Vars2) -> None:
+    n = ddy.shape[0]
+    Y_out[:] = A
+    Y_out[:n] += B[0,0] * Y[n:]
+    # Y_out[:n] += B[0,1] * ddy
+
+    Y_out[n:] += B[1, 0] * Y[:n]
+    Y_out[n:] += B[1,1] * ddy
+# ======================================================================
 def jac_33i(Dx, Jddy):
-    n = len(Jddy)
-    Jg = np.ones((2*n, 2*n))
+    n_ddy, n_y = Jddy.shape
+
+    Jg = np.eye(n_y)
 
     # J(gy) = [I, 0] - Dx / 3 [0, I]
-    Jg[0:n, n:] = - Dx / 3. * np.eye(n)
+    I_ddy = np.eye(n_ddy)
+    Jg[:n_ddy, n_ddy:] = - Dx / 3. * I_ddy
 
     # J(gdy) = [0, I] - 2 / Dx * [I, 0] - Dx/ 6 * J(ddy)
-    Jg[n:, 0:n] = -2. / Dx * np.eye(n)
-    Jg[n:] += - Dx / 6. * Jddy
+    Jg[n_ddy:, :n_ddy] = -2. / Dx * I_ddy
+    Jg[n_ddy:] += - Dx / 6. * Jddy
     return Jg
 # ======================================================================
 # def poly_33i(F0, FX, Dx):

@@ -12,7 +12,6 @@ from poly import poly_33i
 from poly import poly_33if
 from poly import poly_43i
 from poly import poly_44i
-# import numba as nb
 # ======================================================================
 # @nb.njit
 def frange(n: int, dtype: type = np.float64):
@@ -29,6 +28,7 @@ def erange(n, x):
     for i in range(1, n):
         out[i] = out[i - 1] * x
     return out
+
 # ======================================================================
 def _construct_NM(n_diffs, length, dtype):
     NM = np.zeros((n_diffs, length), dtype = dtype)
@@ -92,6 +92,39 @@ def _pade_R(d0: int, dx: int = 0, skip: int = -1):
         if i != skip:
             equations.append(sp.Equality(f, r))
     return x, A, B, F0, FX, equations
+# ======================================================================
+def jacobian_update():
+    import sympy as sp
+    J = sp.Matrix(2,4, lambda i,j: sp.Symbol(f'j{i}{j}'))
+    Delta_y = sp.Matrix(4,1, lambda i,j: sp.Symbol(f'Dy{i}'))
+    Delta_f = sp.Matrix(2,1, lambda i,j: sp.Symbol(f'Df{i}'))
+    Delta_J = (Delta_f - J * Delta_y) * Delta_y.T
+    print(Delta_J[0,0])
+    print(Delta_J[0,1])
+    print(Delta_J[1,0])
+    print(Delta_J[1,1])
+# ======================================================================
+def error_differentials():
+    import sympy as sp
+    alpha = sp.Symbol('alpha', real = True)
+    a = sp.MatrixSymbol('a', 2, 1)
+    Yp = sp.MatrixSymbol('Yp', 2, 1)
+    Y = Yp - alpha * a
+    R = sp.MatrixSymbol('R', 2, 1)
+    A = sp.MatrixSymbol('A', 2, 1)
+    T = sp.hadamard_product(R, Y, Y) + A
+    ddy = sp.MatrixSymbol('P_ydy', 1, 1)
+    P_ydy = sp.MatrixSymbol('P_ydy', 2, 2)
+    P_ddy = sp.MatrixSymbol('P_ddy', 2, 1)
+    f_step = P_ydy * Y + P_ddy * ddy
+    # print(T)
+    # print(T.diff(Y))
+
+    I = sp.MatrixSymbol('I', 2, 2)
+    J = sp.MatrixSymbol('J', 2, 2)
+    E = I * Yp / (J * Yp)
+    print(E)
+    sp.simplify(E)
 # ======================================================================
 def _print_pade(solutions, params):
     for solution in solutions:

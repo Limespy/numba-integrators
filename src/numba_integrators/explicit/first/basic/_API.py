@@ -29,8 +29,8 @@ from .._aux_e1 import ODE1Type
 # ======================================================================
 # Hinting types
 if TYPE_CHECKING:
-    from ...._types_extra import Arrayable
-    from ...._types_extra import npAFloat64
+    from ...._types import Arrayable
+    from ...._types import npAFloat64
 # ======================================================================
 @nbDecFC(nb.float64(nbODE_type,
                     nb.float64,

@@ -3,3 +3,4 @@ matplotlib >= 3.9
 pre-commit >= 3.2.2, <4
 sympy >= 1.13.1
 tox >= 4.5.1
+tox-uv >= 1.25

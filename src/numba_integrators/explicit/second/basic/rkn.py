@@ -21,7 +21,7 @@ from ._aux_e2b import Solver2
 # Hinting types
 if TYPE_CHECKING:
     from ._aux_e2b import ODE2Type
-    from ...._types_extra import npAFloat64
+    from ...._types import npAFloat64
 else:
     ODE2Type = npAFloat64
 # ======================================================================

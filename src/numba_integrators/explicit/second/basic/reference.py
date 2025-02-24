@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from typing import Any
 
     from ._aux_e2b import ODE2Type
-    from ...._types_extra import npAFloat64
+    from ...._types import npAFloat64
 else:
     Callable = tuple
     Any = ODE2Type = npAFloat64 = object

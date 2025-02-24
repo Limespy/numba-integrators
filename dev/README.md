@@ -582,10 +582,10 @@ J_n^{-1}
        + \frac{\Delta y_n - J_{n-1}^{-1} \cdot \Delta e}
               {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta e}
          \cdot \Delta y_n^T \cdot J_{n-1}^{-1}\\
-    &= (I
+    &= \left(I
        + \frac{\Delta y_n - J_{n-1}^{-1} \cdot \Delta e}
               {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta e}
-         \cdot \Delta y_n^T) \cdot J_{n-1}^{-1}\\
+         \cdot \Delta y_n^T\right) \cdot J_{n-1}^{-1}\\
 \Delta e
     &= e_n - e_{n-1}\\
 a_n
@@ -598,11 +598,41 @@ J_{n-1}^{-1} \cdot e_n
     &= a_{n-1/2}\\
 J_{n-1}^{-1} \cdot e_{n-1}
     &= a_{n-1}\\
+(a_{n-1/2} - a_{n-1})
+    &= \Delta a_{n-1}\\
 a_n
-    &= (I
-       + \frac{\Delta y_n - (a_{n-1/2} - a_{n-1})}
-              {\Delta y_n^T \cdot (a_{n-1/2} - a_{n-1})}
-         \cdot \Delta y_n^T) \cdot a_{n-1/2}\\
+    &= \left(I
+       + \frac{\Delta y_n \cdot I - \Delta a_{n-1}}
+              {\Delta y_n^T \cdot \Delta a_{n-1}}
+         \cdot \Delta y_n^T\right) \cdot a_{n-1/2}\\
+\end{aligned}
+$$
+
+#### Differential
+
+$$
+\begin{aligned}
+D_Y(a_n)
+    &= D_Y(J_{E, n}^{-1}) \cdot E_n
+       + J_{E, n}^{-1} \cdot D_Y(E_n)\\
+D_Y(J_{E, n}^{-1})
+    &= D_Y\left(\left(I
+        + \frac{\Delta y_n - J_{n-1}^{-1} \cdot \Delta E}
+               {\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta E}
+            \cdot \Delta y_n^T\right) \right)\\
+\Delta y_n - J_{n-1}^{-1} \cdot \Delta E
+    &= X
+\Delta y_n^T \cdot J_{n-1}^{-1} \cdot \Delta E
+    &= Z
+D_Y(J_{E, n}^{-1})
+    &= D_Y\left(\frac{X}{Z}\right)\cdot J_{n-1}^{-1}\\
+    &= \frac{D_y(X) \cdot Z - X \cdot D_Y(Z)}{Z^2}\\
+D_Y(X)
+    &= I - J_{n-1}^{-1} \cdot D_Y(\Delta E)\\
+D_Y(Z)
+    &= J_{n-1}^{-1} \cdot \Delta E + \Delta y_n^T \cdot J_{n-1}^{-1} \cdot D_Y(\Delta E)\\
+D_Y(\Delta E)
+    &= D_Y(E_n)
 \end{aligned}
 $$
 
@@ -660,12 +690,42 @@ $$
 
 #### Differential
 
+##### Error function
+
 $$
 \begin{aligned}
-E_n(\alpha)
-    &= e_n^T \cdot e_n\\
-e_n
-    &= Y_n - P(Dx, Y_n, ddy(x, Y_n))\\
+e2_n(\alpha)
+    &= \sum_{i = 0}^k {\mathbb{e}_{y,n}[i]}^2 / tol_{y}(y_{n})[i]
+                      + {\mathbb{e}_{dy,n}[i]}^2 / tol_{dy}(dy_{n})[i]\\
+\mathbb{e}_{z,n}
+    &= z_n - P_z(Dx, y_n, dy_n, ddy_n)\\
+tol_{z}(z_{n})
+    &= \mathbb{rtol}_{z} \odot \mathbb{z}_{n} \odot \mathbb{z}_{n} + \mathbb{atol}_{z}\\
+e2_n(\alpha)
+    &= \mathbb{e}_{y,n} \cdot (\mathbb{e}_{y,n} \oslash tol_{y}(y_n))
+       + \mathbb{e}_{dy,n} \cdot (\mathbb{e}_{dy,n} \oslash tol_{dy}(dy_n))\\
+    &= \begin{bmatrix} \mathbb{e}_{y,n}\\\mathbb{e}_{dy,n}\end{bmatrix}^T
+       \cdot \left(\begin{bmatrix} \mathbb{e}_{y,n}\\\mathbb{e}_{dy,n}\end{bmatrix}
+              \oslash \begin{bmatrix}tol_{y}(y_n)\\tol_{dy}(dy_n)\end{bmatrix}\right)\\
+\begin{bmatrix} y_{n}\\dy_{n}\end{bmatrix}
+    &= Y_n\\
+    &= Y_{n-1} - \alpha \cdot a_{n-1}
+\begin{bmatrix} P_{y}\\ P_{dy}\end{bmatrix}
+    &= P\\
+\begin{bmatrix} \mathbb{e}_{y,n}\\\mathbb{e}_{dy,n}\end{bmatrix}
+    &= E_n\\
+    &= Y_n - P(Dx, *Y_n, ddy_n)\\
+\begin{bmatrix} rtol_{y}\\ rtol_{dy}\end{bmatrix}
+    &= RTOL\\
+\begin{bmatrix} atol_{y}\\ atol_{dy}\end{bmatrix}
+    &= ATOL\\
+\begin{bmatrix}tol_{y}(y_n)\\ tol_{dy}(dy_n)\end{bmatrix}
+    &= T_Y(Y_n)\\
+    &= RTOL \odot Y_n \odot Y_n + ATOL\\
+e2_n
+    &= E_n^T \cdot (E_n \oslash T_Y(Y_n))\\
+ddy_n
+    &= ddy(x, y_n, dy_n)\\
 Y_n
     &= Y_{n-1} - \alpha \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
 \end{aligned}
@@ -674,28 +734,49 @@ $$
 Solving for
 
 $$
-E_m = e_0^2 + e_1^2+ \dots + e_k^2
-D_x(E_m) = 2 \cdot e_0 * D_x(e_0) + 2 \cdot e_0 * D_x(e_0) + \dots + 2 \cdot e_k * D_x(e_k)
-D_x(E_m) = 2 \cdot e^T \cdot D_x(e)
-
+\begin{aligned}
+E_m
+    &= e_0^2 + e_1^2+ \dots + e_k^2\\
+D_x(E_m)
+    &= 2 \cdot e_0 * D_x(e_0) + 2 \cdot e_0 \cdot D_x(e_0) + \dots + 2 \cdot e_k * D_x(e_k)\\
+D_x(E_m)
+    &= 2 \cdot e^T \cdot D_x(e)\\
+\end{aligned}
 $$
 
 First derivative
 
 $$
 \begin{aligned}
-D_\alpha (E_n(\alpha))
-    &= 2 \cdot e_n^T \cdot D_\alpha(e_n)\\
-D_\alpha(e_n)
-    &= D_\alpha(Y_n) - D_\alpha(P)\\
+D_\alpha (e2_n(\alpha))
+    &= D_\alpha(E_n^T \cdot (E_n \oslash T_Y(Y_n)))\\
+    &= D_\alpha(E_n)^T \cdot (E_n \oslash T_Y(Y_n))
+       + E_n^T \cdot D_\alpha(E_n \oslash T_Y(Y_n))\\
+D_\alpha(E_n \oslash T_Y(Y_n))
+    &= (D_\alpha(E_n) \odot T_Y(Y_n) - E_n \odot D_\alpha(T_Y(Y_n))) \oslash T_Y(Y_n)^(o2)\\
+    &= (D_\alpha(E_n) \oslash T_Y(Y_n) - E_n \odot D_\alpha(T_Y(Y_n))\oslash T_Y(Y_n)^(o2))\\
+D_\alpha (e2_n(\alpha))
+    &= E_n^T \cdot (2 \cdot D_\alpha(E_n)\oslash T_Y(Y_n) - E_n \odot D_\alpha(T_Y(Y_n))\oslash T_Y(Y_n)^(o2))\\
+    &= E_n^T \cdot ((2 \cdot D_\alpha(E_n) - E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n)) \oslash T_Y(Y_n))\\
+2 \cdot D_\alpha(E_n) - E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n)
+    &= K\\
+D_\alpha (e2_n(\alpha))
+    &= E_n^T \cdot K \oslash T_Y(Y_n)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+D_\alpha(E_n)
+    &=  D_Y(E_n) \cdot D_\alpha(Y_n)\\
+D_\alpha(T_Y(Y_n))
+    &= 2 \cdot RTOL \odot Y_n \odot D_\alpha(Y_n)\\
 D_\alpha(Y_n)
-    &= - J_{n-1}^{-1} \cdot e_{n-1}\\
-D_\alpha(P)
-    &= (D_Y(P) + D_{ddy}(P) \cdot D_{Y_n}(ddy))\cdot D_\alpha(Y_n)\\
-D_{Y_n}(ddy)
-    &= J_{ddy,n-1}\\
-D_\alpha(e_n)
-    & = (I + D_Y(P) + D_{ddy}(P) \cdot J(ddy)) \cdot J_{n-1}^{-1} \cdot e_{n-1}\\
+    &= - a_{n-1}\\
+D_\alpha(E_n)
+    &= - D_Y(E_n) \cdot a_{n-1}\\
+D_\alpha(T_Y(Y_n))
+    &= - 2 \cdot RTOL \odot Y_n \odot a_{n-1}\\
 \end{aligned}
 $$
 
@@ -703,12 +784,29 @@ Second derivative
 
 $$
 \begin{aligned}
-D_\alpha^2 (E_n(\alpha))
-    &= 2 \cdot (D_\alpha(e_n)^T \cdot D_\alpha(e_n)
-                + e_n^T \cdot D_\alpha^2(e_n))\\
-D_\alpha^2(e_n)
-    &= D_\alpha((I + D_Y(P) + D_{ddy}(P) \cdot J(ddy, n-1)) \cdot J_{n-1}^{-1} \cdot e_{n-1})\\
-    &= D_\alpha((D_Y^2(P) + D_{ddy}^2(P) \cdot J(ddy, n-1)) \cdot J_{n-1}^{-1} \cdot e_{n-1})\\
+D_\alpha (e2_n(\alpha))
+    &=E_n^T \cdot (K \oslash T_Y(Y_n))\\
+D_\alpha^2 (e2_n(\alpha))
+    &=D_\alpha(E_n)^T \cdot (K \oslash T_Y(Y_n))
+      + E_n^T \cdot D_\alpha(K \oslash T_Y(Y_n))\\
+D_\alpha(K \oslash T_Y(Y_n))
+    &=(D_\alpha(K) - K \odot D_alpha(T_Y(Y_n))\oslash T_Y(Y_n))\oslash T_Y(Y_n)\\
+D_\alpha(K)
+    &=D_\alpha(2 \cdot D_\alpha(E_n)- E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))\\
+    &=2 \cdot D_\alpha^2(E_n)
+      - D_\alpha(E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))\\
+D_\alpha(E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))
+    &= D_\alpha(E_n) \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n)
+       + D_\alpha(D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))\\
+D_\alpha(D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))
+    &= (D_\alpha^2(T_Y(Y_n)) - D_\alpha(T_Y(Y_n))^{o2} \oslash T_Y(Y_n)) \oslash T_Y(Y_n)\\
+D_\alpha(E_n \odot D_\alpha (T_Y(Y_n)) \oslash T_Y(Y_n))
+    &= (D_\alpha(E_n) \odot D_\alpha (T_Y(Y_n))
+        + D_\alpha^2(T_Y(Y_n))
+        - D_\alpha(T_Y(Y_n))^{o2} \oslash T_Y(Y_n))\oslash T_Y(Y_n)\\
+D_\alpha^2(T_Y(Y_n))
+    &= D_\alpha(2 \cdot RTOL\odot Y_n \odot D_\alpha(Y_n))\\
+    &= 2 \cdot RTOL \odot D_\alpha(Y_n)^{o2}\\
 \end{aligned}
 $$
 #### next $\alpha$
